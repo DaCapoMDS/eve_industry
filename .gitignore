@@ -1,0 +1,18 @@
+# --- private: never commit ---
+# your EVE login (refresh token)
+token.json
+# your personal settings + app Client ID (template: config.example.json)
+config.json
+# your wallet, jobs and order history
+transactions.json
+journal.json
+jobs.json
+order_events.json
+
+# --- caches / generated (rebuilt automatically) ---
+sde/
+sde_cache.json
+history_cache.json
+output/
+__pycache__/
+*.pyc

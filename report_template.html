@@ -1,0 +1,1422 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EVE Industry ROI</title>
+<style>
+:root{
+  --bg:#0d1117;--panel:#151b23;--line:#262f3a;--text:#d8dee6;--muted:#8b96a3;
+  --accent:#e0a93b;--good:#3fb27f;--bad:#e5534b;--warn:#d4a72c;--row:#11161d;
+  font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-size:13px}
+header{padding:18px 20px 8px}
+h1{margin:0 0 4px;font-size:20px;font-weight:600}
+h1 span{color:var(--accent)}
+.meta{color:var(--muted);font-size:12px;line-height:1.6}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 20px;position:sticky;top:0;background:var(--bg);z-index:3;border-bottom:1px solid var(--line)}
+input,select{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px}
+label{color:var(--muted);display:flex;gap:6px;align-items:center}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;padding:12px 20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.card .k{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.card .v{font-size:15px;font-weight:600;margin-top:3px}
+.card .s{color:var(--muted);font-size:12px;margin-top:2px}
+.wrap{overflow-x:auto;padding:0 20px 30px}
+table{border-collapse:collapse;width:100%;min-width:1100px}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{position:sticky;top:0;background:var(--panel);color:var(--muted);font-weight:500;cursor:pointer;user-select:none;font-size:12px}
+th:hover{color:var(--text)}
+th.sorted{color:var(--accent)}
+th.sorted2{color:var(--text)}
+th sup{font-size:9px;margin-left:2px}
+.controls.limits{position:static;padding-top:0;border-bottom:0}
+.controls.limits input{padding:4px 6px}
+.controls.limits select{padding:4px 6px;max-width:170px}
+td:first-child,th:first-child,td.l,th.l{text-align:left}
+tbody tr.main:hover{background:var(--row);cursor:pointer}
+.pos{color:var(--good)}.neg{color:var(--bad)}.dim{color:var(--muted)}
+.tag{display:inline-block;padding:1px 6px;border-radius:4px;font-size:11px;border:1px solid var(--line);color:var(--muted)}
+.tag.bad{color:var(--bad);border-color:#5a2a28}
+.tag.own{color:var(--good);border-color:#1f4d38}
+.char{display:flex;gap:10px;align-items:center;margin:8px 0 2px;font-size:13px}
+.char img{width:36px;height:36px;border-radius:6px}
+.char b{font-weight:600}
+.tag.warn{color:var(--warn);border-color:#5a4a1c}
+.bar{display:inline-block;height:6px;border-radius:3px;background:var(--accent);vertical-align:middle;margin-left:6px;opacity:.8}
+tr.detail td{background:var(--row);text-align:left;white-space:normal;padding:12px 16px}
+.dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.dgrid h4{margin:0 0 6px;font-size:12px;color:var(--accent);font-weight:600}
+.dgrid table{min-width:0}
+.dgrid td{padding:3px 6px;border:none}
+.illiquid td{opacity:.55}
+.ico{width:28px;height:28px;vertical-align:middle;margin-right:8px;border-radius:4px;background:#0a0e13}
+.ico.s{width:20px;height:20px;margin-right:6px}
+td.name{white-space:nowrap}
+td.name .ico,td.name .stack{vertical-align:middle}
+nav{display:flex;gap:6px;padding:0 20px 4px}
+nav a{cursor:pointer;color:var(--muted);text-decoration:none;padding:6px 12px;border:1px solid var(--line);border-radius:6px;font-size:13px}
+nav a:hover{color:var(--text)}
+nav a.on{color:var(--bg);background:var(--accent);border-color:var(--accent);font-weight:600}
+nav a .n{opacity:.7;margin-left:6px;font-size:12px}
+nav{flex-direction:column;gap:8px}
+nav .sections,nav .subtabs{display:flex;gap:6px;flex-wrap:wrap}
+nav .sections a{font-size:14px;padding:7px 16px;font-weight:600}
+nav .sections a.on{background:var(--panel);color:var(--accent);border-color:var(--accent)}
+nav .subtabs{padding-left:2px}
+.navsep{width:1px;background:var(--line);margin:0 6px}
+.days.sales .day{cursor:pointer}
+.days.sales .day:hover div{opacity:1;filter:brightness(1.3)}
+.timeline .dayhead{display:flex;gap:14px;align-items:baseline;flex-wrap:wrap;padding:14px 8px 6px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);scroll-margin-top:60px;transition:background .3s}
+.timeline .dayhead.flash{background:var(--panel)}
+.timeline .dayhead b{font-size:14px}
+.timeline table.daytab{min-width:900px;margin-bottom:6px}
+.timeline table.daytab th{position:static;background:none;font-size:11px;padding:4px 8px;cursor:default}
+.timeline table.daytab td{border-bottom:1px solid #1a212b;padding:4px 8px}
+.addbtn{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:12px;min-width:34px}
+.addbtn:hover{border-color:var(--accent);color:var(--accent)}
+.addbtn.in{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:600}
+h3.sub{font-size:13px;color:var(--accent);margin:18px 0 8px;display:flex;align-items:center;gap:10px}
+h3.sub .actions{margin-left:auto;display:flex;gap:8px}
+h3.sub button,#copymb{background:var(--accent);color:var(--bg);border:0;border-radius:6px;padding:6px 12px;font-weight:600;cursor:pointer}
+.linkbtn{background:none!important;border:0;color:var(--muted)!important;cursor:pointer;text-decoration:underline;font-weight:400!important;padding:0 4px!important}
+table.plan{min-width:700px}
+.stepper{display:inline-flex;align-items:center;gap:2px}
+.stepper button{background:var(--panel);border:1px solid var(--line);color:var(--text);width:24px;height:24px;border-radius:5px;cursor:pointer}
+.stepper input{width:52px;text-align:center;padding:3px}
+.help.notes{padding:10px 0 0;line-height:1.8}
+.warnc{color:var(--warn)}
+.l2{display:block;font-size:11px;color:var(--muted);line-height:1.35;margin-top:1px}
+.stack{display:inline-flex;flex-direction:column;min-width:0}
+.trunc{display:inline-block;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+#t td,#t th{padding:5px 7px}
+#t td.name .trunc{max-width:250px}
+.patience input[type=range]{width:260px;accent-color:var(--accent)}
+.patience b{min-width:70px;color:var(--accent)}
+.dot.ok{background:var(--good)}
+.days{display:flex;align-items:flex-end;gap:2px;height:64px;border-bottom:1px solid var(--line);margin-top:6px}
+.day{flex:1;display:flex;align-items:flex-end;max-width:26px}
+.day div{width:100%;border-radius:2px 2px 0 0}
+.day .up{background:var(--good);opacity:.8}.day .down{background:var(--bad);opacity:.8}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--bad);margin-left:4px;vertical-align:middle}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.upd{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+.upd button{background:var(--accent);color:var(--bg);border:0;border-radius:6px;padding:7px 14px;font-weight:600;font-size:13px;cursor:pointer}
+.upd button.sec{background:transparent;color:var(--text);border:1px solid var(--line)}
+.upd button:disabled{opacity:.6;cursor:wait}
+.upd .log{max-width:420px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--bg);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.chip{display:inline-flex;align-items:center;cursor:pointer;user-select:none}
+.chip input{display:none}
+.chip span{padding:4px 10px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:12px}
+.chip input:checked + span{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:600}
+.seg{display:inline-flex}
+.seg .chip span{border-radius:0;margin-left:-1px}
+.seg .chip:first-child span{border-radius:999px 0 0 999px;margin-left:0}
+.seg .chip:last-child span{border-radius:0 999px 999px 0}
+.flabel{color:var(--muted);font-size:12px;margin-left:6px}
+details.help summary{cursor:pointer;color:var(--muted);padding:2px 0 8px}
+details.help summary:hover{color:var(--text)}
+details.help div{padding-bottom:6px}
+th[title]{text-decoration:underline dotted var(--line);text-underline-offset:3px}
+.help{color:var(--muted);font-size:12px;padding:0 20px 14px;line-height:1.6}
+.help b{color:var(--text);font-weight:500}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <h1>Industry ROI <span>· Amarr</span></h1>
+    <div id="upd" class="upd"></div>
+  </div>
+  <div class="meta" id="meta"></div>
+</header>
+<nav id="nav"></nav>
+<div id="itemsView">
+<div class="cards" id="cards"></div>
+<div class="controls">
+  <input id="q" placeholder="Search item…" size="20">
+  <select id="grp"><option value="">All groups</option></select>
+  <span class="flabel">Tech</span>
+  <span class="seg" id="tech">
+    <label class="chip"><input type="radio" name="tech" value="all" checked><span>All</span></label>
+    <label class="chip"><input type="radio" name="tech" value="t1"><span>T1</span></label>
+    <label class="chip"><input type="radio" name="tech" value="t2"><span>T2</span></label>
+  </span>
+  <span class="flabel">Hide</span>
+  <label class="chip"><input type="checkbox" id="liq" checked><span>illiquid</span></label>
+  <label class="chip"><input type="checkbox" id="prof"><span>unprofitable</span></label>
+  <label class="chip" title="T1 items whose BPO nobody sells in the region (and you don't own) - you can't easily get the blueprint"><input type="checkbox" id="nobpo"><span>BPO not for sale</span></label>
+  <label class="chip char-only" hidden title="T2 items needing an invention skill you haven't trained - you can't invent those"><input type="checkbox" id="noskill"><span>missing skills</span></label>
+  <label class="chip char-only" hidden title="Items on one of your sell orders"><input type="checkbox" id="have"><span>already selling</span></label>
+  <label class="chip char-only" hidden title="T2 items you already hold an invented blueprint copy for, or are inventing right now"><input type="checkbox" id="hasbp"><span>have T2 blueprint</span></label>
+  <span class="flabel char-only" hidden>Show only</span>
+  <label class="chip char-only" hidden title="Items you can build right now: you own the BPO, or hold an invented T2 blueprint copy"><input type="checkbox" id="own"><span>can build now</span></label>
+</div>
+<div class="controls limits">
+  <span class="flabel">Limits</span>
+  <label class="flabel">Min ROI @avg <input id="minroi" type="number" step="5" placeholder="any" style="width:64px">%</label>
+  <label class="flabel">Max sell-thru <input id="maxst" type="number" min="0" step="1" placeholder="any" style="width:64px"> days</label>
+  <label class="flabel">Max market supply <input id="maxsup" type="number" min="0" step="1" placeholder="any" style="width:64px"> days</label>
+  <label class="flabel">Min vol/day <input id="minvol" type="number" min="0" step="10" placeholder="any" style="width:72px"></label>
+  <span class="flabel">Sort by</span><select id="sort1"></select>
+  <span class="flabel">then by</span><select id="sort2"></select>
+  <button class="linkbtn" id="resetlim" title="Clear all limits">reset</button>
+  <span class="dim" id="count"></span>
+</div>
+<details class="help" id="colhelp">
+  <summary>What do the columns mean?</summary>
+  <div>
+  <b>Profit/batch</b>: T2 items = one successful invention → full BPC manufactured and sold (after invention failures); BPO items = one job of <span id="bpoinfo"></span>. After materials, job costs, tax and broker fee.<br>
+  <b>ROI @avg</b>: ROI if you only get the region's 30-day average price — the conservative number.<br>
+  <b>Vol/day</b>: average over the last 30 days without the single biggest day, so one dump doesn't inflate it.<br>
+  <b>Time</b>: ⚒ manufacturing hours per batch; 🔬 lab hours per successful BPC (copy + all invention attempts incl. failures) — with your Industry, Advanced Industry and Science skills and the blueprint's TE.<br>
+  <b>ISK/hour</b>: profit per hour of manufacturing slot, and below per hour of lab slot — your slots are the limit, so this shows which items use them best.<br>
+  <b>Sell-thru</b>: days of that volume needed to sell one batch (if you were the only seller). <b>Illiquid</b> = more than <span id="maxst"></span> days.<br>
+  <b>Ships / Mineral Builds tabs</b>: <b>ISK per Tritanium</b> = what each Tritanium earns when built into the item (sale after fees − other minerals − job cost, ÷ Tritanium used). Green = better than selling the Tritanium raw at Amarr; ×2.0 = twice the Tritanium price.<br>
+  <b>Market supply</b>: everything all sellers have listed at Amarr ÷ a typical day's sales = days until sold out. Low = little competition, high = flooded market.<br>
+  <b>10% share/day</b>: profit per day if you sell 10% of a typical day's volume, at the lower of today's price and the 30-day average.<br>
+  <b>I have</b>: your units in hangar + on your sell orders + in running jobs (hover for the split) and how many days of market volume that is; green = on your sell orders.<br>
+  <b>Hide: BPO not for sale</b> = T1 items whose blueprint nobody sells in the region and you don't own (the game data lists them, but you can't easily get the BPO).<br>
+  <b>Hide: missing skills</b> = T2 items where an invention skill isn't trained (red "needs …" tag) — you can't invent those yet.<br>
+  <b>Show only: can build now</b> = items you own the BPO for or hold an invented T2 blueprint copy for (your current build list).<br>
+  <b>Source</b>: where the item comes from; <span class="tag own">✓ 2 BPC · 20 runs</span> = invented blueprints you already hold, <span class="tag warn">inventing</span> = invention running.<br>
+  Click a row for the full cost breakdown. Hover any column header for a short explanation.
+  </div>
+</details>
+<div class="wrap">
+<table id="t">
+  <thead><tr id="head"></tr></thead>
+  <tbody id="body"></tbody>
+</table>
+</div>
+</div>
+<div id="ordersView" hidden></div>
+<div id="tradesView" hidden></div>
+<div id="productionView" hidden></div>
+<div id="ledgerView" hidden></div>
+<div id="jobsView" hidden></div>
+<div id="walletView" hidden></div>
+<div id="shopView" hidden></div>
+<div id="matsView" hidden>
+<div class="help">
+  Every input needed for the items in this report, priced at the Amarr hub. <b>Sell</b> = cheapest sell order (what you pay buying instantly),
+  <b>Buy</b> = highest buy order (what you'd pay placing a buy order). <b>On market</b> = units listed for sale at Amarr right now.
+  Click a row to see which items use it and how much per run.
+</div>
+<div class="controls">
+  <input id="mq" placeholder="Search material…" size="22">
+  <select id="mkind"><option value="">All types</option><option>Material</option><option>Datacore</option><option>Decryptor</option></select>
+  <select id="mcat"><option value="">Used by any category</option></select>
+  <span class="dim" id="mcount"></span>
+</div>
+<div class="wrap">
+<table>
+  <thead><tr id="mhead"></tr></thead>
+  <tbody id="mbody"></tbody>
+</table>
+</div>
+</div>
+<script>
+const DATA = /*DATA*/null;
+const META = /*META*/null;
+const MATS = /*MATS*/null;
+const TRACK = /*TRACK*/null;
+
+const fmt = (v, d = 0) => {
+  if (v === null || v === undefined || !isFinite(v)) return '<span class="dim">–</span>';
+  const a = Math.abs(v);
+  if (a >= 1e9) return (v / 1e9).toFixed(2) + 'b';
+  if (a >= 1e6) return (v / 1e6).toFixed(2) + 'm';
+  if (a >= 1e4) return (v / 1e3).toFixed(1) + 'k';
+  return v.toLocaleString('en-US', {maximumFractionDigits: d, minimumFractionDigits: d});
+};
+const pct = (v, d = 1) => v === null || !isFinite(v) ? '<span class="dim">–</span>' : (v * 100).toFixed(d) + '%';
+const sign = v => v > 0 ? 'pos' : v < 0 ? 'neg' : '';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+
+const hours = sec => sec >= 86400 ? (sec / 86400).toFixed(1) + ' days' : (sec / 3600).toFixed(1) + ' h';
+const icon = (tid, cls = '', name = '') => `<img class="ico ${cls}" loading="lazy" alt="" src="https://images.evetech.net/types/${tid}/${/Blueprint$/.test(name) ? 'bp' : 'icon'}?size=64">`;
+
+const D = '<span class="dim">–</span>';
+const hrs = h => h === null || h === undefined ? '–' : h < 1 ? Math.round(h * 60) + 'm' : h < 48 ? h.toFixed(1) + 'h' : (h / 24).toFixed(1) + 'd';
+const sub = (html, title = '') => `<span class="l2"${title ? ` title="${esc(title)}"` : ''}>${html}</span>`;
+const COLS = [
+  {k: 'cartn', tip: 'Add a batch to your shopping list', t: '🛒', f: r => cartBtn(r)},
+  {k: 'name', tip: 'Item name and group. Click a row for the full cost breakdown.', t: 'Item', cls: 'l name', f: r => icon(r.tid) +
+      `<span class="stack"><span class="trunc" title="${esc(r.name)}">${esc(r.name)}</span>` +
+      (r.missing.length ? ' <span class="tag warn" title="No Amarr price for: ' + esc(r.missing.join(', ')) + '">price?</span>' : '') +
+      sub(`<span class="trunc">${esc(r.group)}${r.sub ? ' · ' + esc(r.sub) : ''}</span>`, r.group + (r.sub ? ' · ' + r.sub : '')) + '</span>'},
+  {k: 't1', tip: 'Invented (with your success chance) or built from a BPO (✓ = you own it, with its real ME).', t: 'Source', cls: 'l', f: r => r.bpo ?
+      `<span class="tag ${r.owned ? 'own' : ''}" title="${r.owned ? 'You own this BPO' : 'Assumed ME (you don\'t own this BPO)'}">${r.owned ? '✓ ' : ''}BPO ME${r.me}</span>` +
+        (r.nobpo ? sub('<span class="tag bad" title="Nobody sells this blueprint in the region">BPO not sold here</span>') : '') :
+      `invent · ${pct(r.chance, 0)}` + sub(
+        (r.missing_skills.length ? `<span class="tag bad" title="Required for invention, not trained: ${esc(r.missing_skills.join(', '))}">needs skill</span> ` : '') +
+        (bpTag(r) || `<span class="trunc">${esc(r.t1.replace(' Blueprint', ' BP'))}</span>`), r.t1)},
+  {k: 'units', tip: 'Units produced per batch (one invented BPC, or one BPO job).', t: 'Units/batch', f: r => fmt(r.units)},
+  {k: 'cpu', tip: 'Total cost per unit incl. invention, materials and job fees.', t: 'Cost/unit', f: r => fmt(r.cpu, 2)},
+  {k: 'price', tip: 'Lowest sell order at Amarr now; below: 30-day regional average.', t: 'Price', f: r => fmt(r.price, 2) + sub('avg ' + fmt(r.hprice, 2) + priceWarn(r))},
+  {k: 'profit', tip: 'Profit for one whole batch; below: per unit (after tax and broker fee).', t: 'Profit', f: r => r.nomarket ?
+      '<span class="tag bad" title="Nobody sells or has sold this at Amarr in 30 days">no market</span>' :
+      `<span class="${sign(r.profit)}">${fmt(r.profit)}</span>` + sub(`${fmt(r.ppu, 2)}/unit`)},
+  {k: 'roisafe', tip: 'ROI at today\'s price; below: at the 30-day average. Sorting uses the lower of the two.', t: 'ROI', f: r => r.nomarket ? D :
+      `<span class="${sign(r.roi)}">${pct(r.roi)}</span>` + sub(r.roih === null ? 'avg –' : `avg <span class="${sign(r.roih)}">${pct(r.roih)}</span>`)},
+  {k: 'vol', tip: 'Units sold per day (30-day average without the biggest day); below: ISK traded per day.', t: 'Vol/day', f: r => fmt(r.vol) + trendTag(r.trend) + sub(fmt(r.isk) + ' ISK')},
+  {k: 'mfg_h', tip: 'Manufacturing time per batch with your skills and the blueprint TE; below: lab time per successful BPC (T1 copy + all invention attempts incl. failures).', t: 'Time', f: r =>
+      '⚒ ' + hrs(r.mfg_h) + (r.bpo ? '' : sub('🔬 ' + hrs(r.lab_h) + ' lab'))},
+  {k: 'isk_h', tip: 'Profit per hour of manufacturing slot; below: profit per hour of lab (invention) slot. Your slots are the limit - this shows which items use them best.', t: 'ISK/hour', f: r =>
+      r.nomarket || r.isk_h === null ? D : `<span class="${sign(r.isk_h)}">${fmt(r.isk_h)}</span>` + (r.bpo || r.isk_lab_h === null ? '' : sub(`<span class="${sign(r.isk_lab_h)}">${fmt(r.isk_lab_h)}</span> lab`))},
+  {k: 'st', tip: 'Days of volume needed to sell one batch if you were the only seller.', t: 'Sell-thru', f: r => r.st === null ? '<span class="tag bad">no sales</span>' :
+      `<span class="${r.liquid ? '' : 'neg'}">${r.st.toFixed(1)}d</span>`},
+  {k: 'stock', t: 'Market supply', tip: 'Days until everything listed at Amarr (all sellers) is sold at a typical day\'s volume. Low = little competition.', f: r => r.stock === null ? D : r.stock.toFixed(1) + 'd'},
+  {k: 'mine', tip: 'Your units: hangar + your sell orders + running jobs. Green = on your sell orders.', t: 'I have', f: r => !r.hold ? D :
+      `<span class="tag ${r.have ? 'own' : ''}" title="hangar ${fmt(r.hold.stock)} · on my sell orders ${fmt(r.hold.listed)} · building ${fmt(r.hold.building)}">${fmt(r.mine)}</span>` +
+      (r.mine_days !== null ? sub(`${r.mine_days < 0.1 ? '<0.1' : r.mine_days.toFixed(1)}d of market`) : '')},
+  {k: 'trit', tabs: ['ships', 'mineral_builds'], tip: 'Tritanium used by one batch; below: its share of the material cost.', t: 'Tritanium', f: r => r.trit ?
+      fmt(r.trit) + sub(r.trit_share === null ? '' : pct(r.trit_share, 0) + ' of cost') : D},
+  {k: 'trit_isk', tabs: ['ships', 'mineral_builds'], tip: 'What each Tritanium earns when built into this item: sale after fees, minus all other minerals and the job cost, divided by the Tritanium used (at the lower of the current price and the 30-day average). Green = better than selling Tritanium at Amarr.', t: 'ISK / Trit', f: r => {
+      if (r.trit_isk === null) return D;
+      const cls = TRIT_PRICE === null ? '' : r.trit_isk > TRIT_PRICE ? 'pos' : 'neg';
+      return `<span class="${cls}">${fmt(r.trit_isk, 2)}</span>` + (TRIT_PRICE && r.trit_isk > 0 ? sub(`×${(r.trit_isk / TRIT_PRICE).toFixed(1)} vs raw`) : '');
+    }},
+  {k: 'p10', tip: 'Profit per day if you sell 10% of the typical daily volume.', t: '10% share/day', f: r => `<span class="${sign(r.p10)}">${fmt(r.p10)}</span>` + bar(r.p10)},
+];
+const priceWarn = r => r.hprice && r.price && r.price > r.hprice * 1.25 ?
+  ` <span class="tag warn" title="Current Amarr price is ${((r.price / r.hprice - 1) * 100).toFixed(0)}% above the 30-day average — ROI may be optimistic">!</span>` : '';
+const trendTag = t => t === null ? '' : Math.abs(t) < 0.03 ? '' :
+  ` <span class="tag ${t < 0 ? 'bad' : ''}" title="price trend over the period">${t > 0 ? '▲' : '▼'}${Math.abs(t * 100).toFixed(0)}%</span>`;
+const maxP10 = Math.max(1, ...DATA.map(r => r.p10));
+const bar = v => v > 0 ? `<span class="bar" style="width:${Math.max(2, 50 * v / maxP10)}px"></span>` : '';
+
+let sortKey = 'p10', sortDir = -1, sortKey2 = null, sortDir2 = -1, open = new Set(), cat = '';
+let LIM = {minroi: '', maxst: '', maxsup: '', minvol: ''};
+try {
+  Object.assign(LIM, JSON.parse(localStorage.getItem('eve-roi-limits') || '{}'));
+  const s = JSON.parse(localStorage.getItem('eve-roi-sort') || 'null');
+  if (s) ({sortKey, sortDir, sortKey2, sortDir2} = s);
+} catch (e) {}
+const saveSort = () => { try { localStorage.setItem('eve-roi-sort', JSON.stringify({sortKey, sortDir, sortKey2, sortDir2})); } catch (e) {} };
+const num0 = v => v === '' || v === null || v === undefined || isNaN(+v) ? null : +v;
+// numeric limits: empty = no limit
+function limitsOk(r) {
+  const minroi = num0(LIM.minroi), maxst = num0(LIM.maxst), maxsup = num0(LIM.maxsup), minvol = num0(LIM.minvol);
+  const roiAvg = r.roih ?? r.roi;
+  if (minroi !== null && !(roiAvg !== null && roiAvg * 100 >= minroi)) return false;
+  if (maxst !== null && !(r.st !== null && r.st <= maxst)) return false;
+  if (maxsup !== null && !(r.stock !== null && r.stock <= maxsup)) return false;
+  if (minvol !== null && !(r.vol >= minvol)) return false;
+  return true;
+}
+try { cat = localStorage.getItem('eve-roi-cat') || ''; } catch (e) {}
+const VIEWS = {__shop: 'shopView', __orders: 'ordersView', __trades: 'tradesView', __production: 'productionView', __ledger: 'ledgerView',
+  __jobs: 'jobsView', __wallet: 'walletView', __mats: 'matsView'};
+const HASHES = {'#pnl': '__trades', '#shopping': '__shop', '#materials': '__mats', '#orders': '__orders', '#trades': '__trades', '#production': '__production',
+  '#ledger': '__ledger', '#jobs': '__jobs', '#wallet': '__wallet'};
+if (HASHES[location.hash]) cat = HASHES[location.hash];
+if (cat && !VIEWS[cat] && !META.cats.some(c => c.key === cat)) cat = '';
+const inCat = r => !cat || r.cat === cat;
+const SHOW_ALL_TABS = ['mining'];
+const FILTERS = ['liq', 'prof', 'nobpo', 'noskill', 'have', 'hasbp', 'own'];
+let fsaved = {liq: true, prof: false, nobpo: true, noskill: true, have: true, hasbp: false, own: false, tech: 'all'};
+// T1 = built from a BPO, T2 = invented
+const techOk = r => { const t = currentTech(); return t === 'all' || (t === 't1' ? r.bpo : !r.bpo); };
+function currentTech() { return (document.querySelector('input[name=tech]:checked') || {}).value || 'all'; }
+try { Object.assign(fsaved, JSON.parse(localStorage.getItem('eve-roi-filters') || '{}')); } catch (e) {}
+// the compressors tab lists everything by default; other tabs use your saved choice
+const syncLiquid = () => { document.getElementById('liq').checked = SHOW_ALL_TABS.includes(cat) ? false : fsaved.liq; };
+
+function renderMeta() {
+  const i = META.idx;
+  document.getElementById('bpoinfo').textContent = `${META.bpo_runs} runs at ME${META.bpo_me}`;
+  document.getElementById('maxst').textContent = META.maxst;
+  document.querySelectorAll('input[name=tech]').forEach(r => {
+    r.checked = r.value === fsaved.tech;
+    r.addEventListener('change', () => {
+      fsaved.tech = r.value;
+      try { localStorage.setItem('eve-roi-filters', JSON.stringify(fsaved)); } catch (e) {}
+      renderCards(); render();
+    });
+  });
+  FILTERS.forEach(id => {
+    const box = document.getElementById(id);
+    if (id !== 'liq') box.checked = !!fsaved[id];
+    box.addEventListener('change', () => {
+      const other = {own: 'hasbp', hasbp: 'own'}[id];
+      if (other && box.checked) { document.getElementById(other).checked = false; fsaved[other] = false; }
+      if (id !== 'liq' || !SHOW_ALL_TABS.includes(cat)) fsaved[id] = box.checked;
+      try { localStorage.setItem('eve-roi-filters', JSON.stringify(fsaved)); } catch (e) {}
+      renderCards();
+    });
+  });
+  document.getElementById('meta').innerHTML =
+    `Generated ${META.generated} · SDE build ${META.sde} · Market: Amarr hub (products at lowest sell order, materials priced by walking the order book for the needed qty), history ${META.days}d ${esc(META.region)} region<br>` +
+    `Industry in ${esc(META.system)}: manufacturing ${pct(i.manufacturing, 2)}, invention ${pct(i.invention, 2)} · ` +
+    `materials bought via ${META.matmode} orders, products sold via ${META.prodmode} orders · tax ${pct(META.tax, 2)}, broker ${pct(META.broker, 2)} · ` +
+    `decryptor: ${esc(META.dec)} · ` + (META.character ? 'skills, fees &amp; BPOs from your character' :
+      `skills (config.json): science ${META.skills.science}, encryption ${META.skills.encryption} · not logged in`);
+  const c = META.character;
+  if (c) {
+    document.querySelectorAll('.char-only').forEach(e => e.hidden = false);
+    document.getElementById('meta').insertAdjacentHTML('afterbegin',
+      `<div class="char"><img src="https://images.evetech.net/characters/${c.id}/portrait?size=64" alt="">` +
+      `<div><b>${esc(c.name)}</b> · ${(c.sp / 1e6).toFixed(1)}m SP · Accounting ${c.accounting}, Broker Relations ${c.broker}` +
+      ` · standings: Amarr faction ${c.faction_standing.toFixed(2)}, station corp ${c.corp_standing.toFixed(2)} · ${c.bpos} BPOs owned</div></div>`);
+  }
+}
+
+function renderView() {
+  if (cat === '__mats') renderMats();
+  else if (cat === '__shop') renderShop();
+  else if (cat === '__orders') renderOrders();
+  else if (cat === '__trades') renderTrades();
+  else if (cat === '__production') renderProduction();
+  else if (cat === '__ledger') renderLedger();
+  else if (cat === '__jobs') renderJobs();
+  else if (cat === '__wallet') renderWallet();
+  else { renderGroups(); renderCards(); render(); }
+}
+
+// tab sections: what to build / what you're running / your money
+const SECTIONS = [
+  {key: 'craft', title: 'Crafting & Blueprints', tabs: () => [{key: '', title: 'All'}, ...META.cats, {key: '__mats', title: 'Materials &amp; Prices'}, {key: '__shop', title: '🛒 Shopping List'}]},
+  {key: 'industry', title: 'Industry', tabs: () => [{key: '__jobs', title: 'Jobs'}, {key: '__production', title: 'Production'}, {key: '__ledger', title: 'Material Ledger'}]},
+  {key: 'economy', title: 'Economy', tabs: () => [{key: '__orders', title: 'My Orders'}, {key: '__trades', title: 'Trades'}, {key: '__wallet', title: 'Wallet'}]},
+];
+const sectionOf = key => SECTIONS.find(s => s.tabs().some(t => t.key === key)) || SECTIONS[0];
+let lastTab = {};
+try { lastTab = JSON.parse(localStorage.getItem('eve-roi-lasttab') || '{}'); } catch (e) {}
+const badOrders = () => TRACK && TRACK.orders.some(o => orderAdvice(o) === 'undercut');
+const readyJobs = () => TRACK && TRACK.jobs.some(j => j.status === 'ready');
+function tabCount(key) {
+  if (key === '__mats') return MATS.length;
+  if (key === '__shop') return Object.values(CART).reduce((a, n) => a + n, 0) || '';
+  if (key.startsWith('__')) {
+    if (!TRACK) return '–';
+    return {__orders: TRACK.orders.length, __trades: TRACK.tx_count, __production: TRACK.production.length,
+      __ledger: TRACK.ledger.length, __jobs: TRACK.jobs.filter(j => j.status === 'active' || j.status === 'ready').length, __wallet: ''}[key];
+  }
+  return DATA.filter(r => !key || r.cat === key).length;
+}
+function tabDot(key) {
+  if (key === '__shop' && typeof restockLow === 'function' && restockLow()) return ' <span class="dot" title="inputs running out"></span>';
+  if (key === '__orders' && badOrders()) return ' <span class="dot" title="orders undercut or outbid"></span>';
+  if (key === '__jobs' && readyJobs()) return ' <span class="dot ok" title="jobs ready to deliver"></span>';
+  return '';
+}
+function goTab(key) {
+  cat = key;
+  lastTab[sectionOf(key).key] = key;
+  syncLiquid();
+  try { localStorage.setItem('eve-roi-cat', cat); localStorage.setItem('eve-roi-lasttab', JSON.stringify(lastTab)); } catch (e) {}
+  document.getElementById('grp').value = '';
+  renderTabs();
+  renderView();
+}
+function renderTabs() {
+  const cur = sectionOf(cat);
+  const secDot = s => s.key === 'economy' && badOrders() ? ' <span class="dot"></span>' : s.key === 'industry' && readyJobs() ? ' <span class="dot ok"></span>' : '';
+  document.getElementById('nav').innerHTML =
+    `<div class="sections">${SECTIONS.map(s => `<a data-s="${s.key}" class="${s === cur ? 'on' : ''}">${s.title}${secDot(s)}</a>`).join('')}</div>` +
+    `<div class="subtabs">${cur.tabs().map(t => {
+      const n = tabCount(t.key);
+      return `<a data-c="${t.key}" class="${t.key === cat ? 'on' : ''}">${t.title}${n === '' ? '' : `<span class="n">${n}</span>`}${tabDot(t.key)}</a>`;
+    }).join('')}</div>`;
+  document.getElementById('itemsView').hidden = !!VIEWS[cat];
+  Object.entries(VIEWS).forEach(([k, id]) => document.getElementById(id).hidden = cat !== k);
+  document.querySelectorAll('#nav .subtabs a').forEach(a => a.onclick = () => goTab(a.dataset.c));
+  document.querySelectorAll('#nav .sections a').forEach(a => a.onclick = () => {
+    const s = SECTIONS.find(x => x.key === a.dataset.s);
+    const remembered = lastTab[s.key];
+    goTab(s.tabs().some(t => t.key === remembered) ? remembered : s.tabs()[0].key);
+  });
+}
+
+function renderGroups() {
+  const g = [...new Set(DATA.filter(inCat).map(r => r.group))].sort();
+  document.getElementById('grp').innerHTML = '<option value="">All groups</option>' + g.map(x => `<option>${esc(x)}</option>`).join('');
+}
+
+function renderCards() {
+  // conservative = the worse of today's price and the 30-day average, so one absurd listing can't win a card
+  const safeRoi = r => r.roih === null ? r.roi : Math.min(r.roi, r.roih);
+  const safeProfit = r => r.roih === null ? r.profit : Math.min(r.profit, r.cost * r.roih);
+  const skipHave = document.getElementById('have').checked, skipBp = document.getElementById('hasbp').checked;
+  const skipSkill = document.getElementById('noskill').checked, skipNoBpo = document.getElementById('nobpo').checked;
+  const liquid = DATA.filter(r => inCat(r) && techOk(r) && r.liquid && safeProfit(r) > 0 && !(skipHave && r.have) && !(skipBp && r.hasbp) && !(skipSkill && r.noskill) && !(skipNoBpo && r.nobpo) && limitsOk(r));
+  const by = f => [...liquid].sort((a, b) => f(b) - f(a))[0];
+  const c = [
+    ['Best daily earner', by(r => r.p10), r => fmt(r.p10) + ' ISK/day', r => `${fmt(r.vol)} units/day traded · ROI ${pct(safeRoi(r))}`],
+    ['Highest ROI (liquid, ≥1m/batch)', (f => [...liquid].filter(r => safeProfit(r) >= 1e6).sort((a, b) => f(b) - f(a))[0])(safeRoi), r => pct(safeRoi(r)), r => `${fmt(safeProfit(r))} ISK per batch`],
+    ['Most profit per batch (liquid)', by(safeProfit), r => fmt(safeProfit(r)) + ' ISK', r => `sells through in ${r.st.toFixed(1)} days`],
+  ];
+  document.getElementById('cards').innerHTML = c.map(([k, r, v, s]) => r ?
+    `<div class="card"><div class="k">${k}</div><div class="v">${esc(r.name)}</div><div class="s">${v(r)} · ${s(r)}</div></div>` : '').join('') +
+    `<div class="card"><div class="k">Profitable & liquid</div><div class="v">${liquid.length} / ${DATA.filter(r => inCat(r) && techOk(r)).length}</div><div class="s">profitable at both today's price and the 30-day average</div></div>`;
+}
+
+const colsNow = () => COLS.filter(c => !c.tabs || c.tabs.includes(cat));
+function renderHead() {
+  const mark = c => c.k === sortKey ? (sortDir < 0 ? ' ▾' : ' ▴') : c.k === sortKey2 ? `<sup>2</sup>${sortDir2 < 0 ? '▾' : '▴'}` : '';
+  document.getElementById('head').innerHTML = colsNow().map(c =>
+    `<th class="${c.cls || ''} ${c.k === sortKey ? 'sorted' : c.k === sortKey2 ? 'sorted2' : ''}" data-k="${c.k}" title="${esc((c.tip ? c.tip + ' — ' : '') + 'Click: sort · Shift+click: second sort')}">${c.t}${mark(c)}</th>`).join('');
+  document.querySelectorAll('#head th').forEach(th => th.onclick = e => {
+    const k = th.dataset.k, firstDir = typeof DATA[0][k] === 'string' ? 1 : -1;
+    if (e.shiftKey && k !== sortKey) {
+      sortDir2 = k === sortKey2 ? -sortDir2 : firstDir;
+      sortKey2 = k;
+    } else {
+      sortDir = k === sortKey ? -sortDir : firstDir;
+      if (k === sortKey2) sortKey2 = null;
+      sortKey = k;
+    }
+    saveSort(); render();
+  });
+  // sort-only keys that aren't their own column
+  const extra = [{k: 'group', t: 'Group'}, {k: 'techn', t: 'Tech (T1/T2)'}, {k: 'roih', t: 'ROI @avg'}, {k: 'ppu', t: 'Profit/unit'}, {k: 'profit', t: 'Profit/batch'}];
+  const cols = colsNow().filter(c => c.k !== 'cartn').concat(extra.filter(x => !colsNow().some(c => c.k === x.k)));
+  const opts = (withNone) => (withNone ? [['', '—']] : []).concat(
+    cols.flatMap(c => [[c.k + ':-1', c.t + ' ▾'], [c.k + ':1', c.t + ' ▴']]));
+  const fill = (id, key, dir, withNone) => {
+    const cur = key ? key + ':' + dir : '';
+    document.getElementById(id).innerHTML = opts(withNone).map(([v, t]) =>
+      `<option value="${v}" ${v === cur ? 'selected' : ''}>${esc(t)}</option>`).join('');
+  };
+  fill('sort1', sortKey, sortDir, false);
+  fill('sort2', sortKey2, sortDir2, true);
+}
+
+function detail(r) {
+  const mats = r.materials.map(m => `<tr><td>${icon(m.tid, 's')}${esc(m.name)}</td><td>${fmt(m.qty)}</td><td>${fmt(m.unit, 2)}</td><td>${fmt(m.total)}</td></tr>`).join('');
+  return `<tr class="detail"><td colspan="${colsNow().length}"><div class="dgrid">
+    ${r.bpo ? `<div><h4>Blueprint</h4><table>
+      <tr><td>Built from</td><td>${esc(r.t1)} (your BPO)</td></tr>
+      <tr><td>Material efficiency</td><td>ME ${r.me}</td></tr>
+      <tr><td>Batch</td><td>${r.runs} runs → ${fmt(r.units)} units · ${hrs(r.mfg_h)} build time (TE ${r.te}, with your skills)</td></tr>
+      ${r.bpoprice ? `<tr><td>BPO price (NPC)</td><td>${fmt(r.bpoprice)} ISK${r.profit > 0 ? ` → pays for itself after ${Math.ceil(r.bpoprice / r.profit)} batch(es)` : ''}</td></tr>` : ''}
+    </table></div>` : `<div><h4>Invention</h4><table>
+      <tr><td>Invent from</td><td>${esc(r.t1)}</td></tr>
+      <tr><td>Per attempt</td><td>${esc(r.invmats.join(', '))}${r.dec !== 'None' ? ', 1x ' + esc(r.dec) : ''}</td></tr>
+      <tr><td>Cost per attempt</td><td>${fmt(r.attempt)} ISK</td></tr>
+      <tr><td>Skills</td><td>${r.invskills.map(s => esc(s.name) + ' ' + (s.lvl ?? '?')).join(', ')}</td></tr>
+      <tr><td>Success chance</td><td>${pct(r.chance)} → ${(1 / r.chance).toFixed(2)} attempts per BPC</td></tr>
+      <tr><td>Invention cost per BPC</td><td>${fmt(r.inv)} ISK</td></tr>
+      <tr><td>BPC</td><td>${r.runs} runs → ${fmt(r.units)} units</td></tr>
+      <tr><td>Lab time per BPC</td><td>${hrs(r.lab_h)} (T1 copy + ${(1 / r.chance).toFixed(2)} invention attempts) → ${fmt(r.isk_lab_h)} ISK profit per lab hour</td></tr>
+      <tr><td>Best decryptor</td><td>${esc(r.best)} (${fmt(r.bestppa)} ISK profit per attempt vs ${fmt(r.ppa)} now)</td></tr>
+    </table></div>`}
+    <div><h4>Manufacturing (whole batch)</h4><table>
+      <tr class="dim"><td>Material</td><td>Qty</td><td>Unit</td><td>Total</td></tr>${mats}
+      <tr><td>Job install cost</td><td></td><td></td><td>${fmt(r.job)}</td></tr>
+      <tr><td>Build time</td><td colspan="3">${hrs(r.mfg_h)} for the batch (TE ${r.te}) → ${fmt(r.isk_h)} ISK profit per manufacturing hour</td></tr>
+    </table></div>
+    <div><h4>Result per batch</h4><table>
+      <tr><td>Invention</td><td>${fmt(r.inv)}</td></tr>
+      <tr><td>Materials</td><td>${fmt(r.mat)}</td></tr>
+      <tr><td>Job cost</td><td>${fmt(r.job)}</td></tr>
+      <tr><td><b>Total cost</b></td><td><b>${fmt(r.cost)}</b></td></tr>
+      <tr><td>Revenue after fees</td><td>${fmt(r.cost + r.profit)}</td></tr>
+      <tr><td><b>Profit</b></td><td class="${sign(r.profit)}"><b>${fmt(r.profit)}</b></td></tr>
+      <tr><td>Volume/day: typical / 30d avg / 7d avg</td><td>${fmt(r.vol)} / ${fmt(r.avgvol)} / ${fmt(r.vol7)}</td></tr>
+      <tr><td>Sell orders at Amarr</td><td>${r.orders}</td></tr>
+    </table></div>
+  </div></td></tr>`;
+}
+
+function render() {
+  const q = document.getElementById('q').value.toLowerCase();
+  const g = document.getElementById('grp').value;
+  const liq = document.getElementById('liq').checked;
+  const prof = document.getElementById('prof').checked;
+  const own = document.getElementById('own').checked;
+  const have = document.getElementById('have').checked;
+  const hasbp = document.getElementById('hasbp').checked;
+  const noskill = document.getElementById('noskill').checked;
+  const nobpo = document.getElementById('nobpo').checked;
+  DATA.forEach(r => r.cartn = CART[r.tid] || 0);
+  let rows = DATA.filter(r => inCat(r) && techOk(r) && (!q || r.name.toLowerCase().includes(q)) && (!g || r.group === g) &&
+    (!liq || r.liquid) && (!prof || r.profit > 0) && (!own || r.canbuild) && (!have || !r.have) && (!hasbp || !r.hasbp) && (!noskill || !r.noskill) && (!nobpo || !r.nobpo) && limitsOk(r));
+  const cmp = (a, b, key, dir) => {
+    const v = x => x === null || x === undefined || (typeof x === 'number' && !isFinite(x)) ? (dir < 0 ? -Infinity : Infinity) : x;
+    const x = v(a[key]), y = v(b[key]);
+    if (x === y) return 0;
+    return (typeof x === 'string' ? x.localeCompare(y) : x - y) * dir;
+  };
+  rows.sort((a, b) => cmp(a, b, sortKey, sortDir) || (sortKey2 ? cmp(a, b, sortKey2, sortDir2) : 0));
+  renderHead();
+  document.getElementById('body').innerHTML = rows.map(r =>
+    `<tr class="main ${r.liquid ? '' : 'illiquid'}" data-n="${esc(r.name)}">${colsNow().map(c => `<td class="${c.cls || ''}">${c.f(r)}</td>`).join('')}</tr>` +
+    (open.has(r.name) ? detail(r) : '')).join('');
+  document.querySelectorAll('tr.main').forEach(tr => tr.onclick = () => {
+    const n = tr.dataset.n; open.has(n) ? open.delete(n) : open.add(n); render();
+  });
+  bindCartButtons(document.getElementById('body'), render);
+  const inTab = DATA.filter(inCat);
+  const techHidden = inTab.filter(r => !techOk(r)).length;
+  const why = [
+    [techHidden > 0, r => !techOk(r), currentTech() === 't1' ? 'T2' : 'T1'],
+    [own, r => !r.canbuild, 'no blueprint'], [noskill, r => r.noskill, 'missing skills'], [nobpo, r => r.nobpo, 'BPO not for sale'],
+    [have, r => r.have, 'already selling'], [hasbp, r => r.hasbp, 'have blueprint'],
+    [liq, r => !r.liquid, 'illiquid'], [prof, r => !(r.profit > 0), 'unprofitable'],
+    [true, r => !limitsOk(r), 'outside limits'],
+  ].filter(([on]) => on).map(([, test, label]) => [label, inTab.filter(test).length]).filter(([, n]) => n);
+  document.getElementById('count').textContent = `${rows.length} of ${inTab.length} items` +
+    (why.length ? ' · hidden: ' + why.map(([l, n]) => `${n} ${l}`).join(', ') : '');
+}
+
+const HOLD = (TRACK && TRACK.holdings) || {};
+DATA.forEach(r => {
+  const x = HOLD[r.tid];
+  r.hold = x || null;
+  r.mine = x ? x.stock + x.listed + x.building : 0;
+  r.mine_days = r.mine && r.vol ? r.mine / r.vol : null;
+  // "already selling it" = it's on one of your sell orders; hangar stock and running jobs don't count
+  r.have = !!x && x.listed > 0;
+});
+const BPH = (TRACK && TRACK.bp_hold) || {};
+DATA.forEach(r => {
+  const b = r.bpo ? null : BPH[r.bp];
+  r.bph = b || null;
+  r.hasbp = !!b && (b.bpc > 0 || b.inventing > 0);
+  r.canbuild = !!r.owned || (!!b && b.bpc > 0);
+  r.roisafe = r.nomarket ? null : r.roih === null ? r.roi : Math.min(r.roi, r.roih);
+  // with a character loaded: required invention skills you haven't trained (level 0 / missing)
+  r.missing_skills = META.character && !r.bpo ? r.invskills.filter(s => !s.lvl).map(s => s.name) : [];
+  r.noskill = r.missing_skills.length > 0 && !r.canbuild;
+  r.nobpo = !!r.bpo && !r.owned && !r.bpo_for_sale;
+  r.techn = r.bpo ? 1 : 2;
+});
+function bpTag(r) {
+  if (!r.bph) return '';
+  const b = r.bph, parts = [];
+  if (b.bpc) parts.push(`<span class="tag own" title="Invented blueprint copies in your hangars">✓ ${b.bpc} BPC · ${fmt(b.runs)} runs</span>`);
+  if (b.inventing) parts.push(`<span class="tag warn" title="Invention jobs running for this blueprint">inventing ${b.inventing}</span>`);
+  return ' ' + parts.join(' ');
+}
+const TRIT_PRICE = (MATS.find(m => m.tid === 34) || {}).sell ?? null;
+const MCOLS = [
+  {k: 'name', t: 'Material', cls: 'l name', f: m => icon(m.tid) + esc(m.name)},
+  {k: 'kind', t: 'Type', cls: 'l', f: m => '<span class="dim">' + m.kind + '</span>'},
+  {k: 'sell', t: 'Sell (Amarr)', f: m => fmt(m.sell, 2)},
+  {k: 'buy', t: 'Buy (Amarr)', f: m => fmt(m.buy, 2)},
+  {k: 'spread', t: 'Spread', f: m => m.spread === null ? '<span class="dim">–</span>' : pct(m.spread)},
+  {k: 'hprice', t: '30d avg', f: m => fmt(m.hprice, 2) + (m.hprice && m.sell && m.sell > m.hprice * 1.25 ?
+      ` <span class="tag warn" title="Amarr sell is ${((m.sell / m.hprice - 1) * 100).toFixed(0)}% above the 30-day average">!</span>` : '')},
+  {k: 'vol', t: 'Vol/day', f: m => fmt(m.vol) + trendTag(m.trend)},
+  {k: 'units', t: 'On market', f: m => m.units ? fmt(m.units) : '<span class="tag bad">none</span>'},
+  {k: 'orders', t: 'Sell orders', f: m => m.orders},
+  {k: 'nby', t: 'Used by', f: m => m.by.length ? m.by.length + ' items' : '<span class="dim">optional</span>'},
+];
+MATS.forEach(m => { m.nby = m.by.length; m.spread = m.sell && m.buy ? m.sell / m.buy - 1 : null; });
+let msortKey = 'nby', msortDir = -1, mopen = new Set();
+
+function renderMats() {
+  const sel = document.getElementById('mcat');
+  if (sel.options.length === 1) sel.innerHTML += META.cats.map(c => `<option value="${c.key}">${esc(c.title)}</option>`).join('');
+  const q = document.getElementById('mq').value.toLowerCase();
+  const kind = document.getElementById('mkind').value, mc = sel.value;
+  const v = x => x === null || x === undefined ? (msortDir < 0 ? -Infinity : Infinity) : x;
+  const rows = MATS.filter(m => (!q || m.name.toLowerCase().includes(q)) && (!kind || m.kind === kind) && (!mc || m.cats.includes(mc)))
+    .sort((a, b) => {
+      const x = v(a[msortKey]), y = v(b[msortKey]);
+      return (typeof x === 'string' ? x.localeCompare(y) : x - y) * msortDir || a.name.localeCompare(b.name);
+    });
+  document.getElementById('mhead').innerHTML = MCOLS.map(c =>
+    `<th class="${c.cls || ''} ${c.k === msortKey ? 'sorted' : ''}" data-k="${c.k}">${c.t}${c.k === msortKey ? (msortDir < 0 ? ' ▾' : ' ▴') : ''}</th>`).join('');
+  document.querySelectorAll('#mhead th').forEach(th => th.onclick = () => {
+    const k = th.dataset.k;
+    msortDir = k === msortKey ? -msortDir : (typeof MATS[0][k] === 'string' ? 1 : -1);
+    msortKey = k; renderMats();
+  });
+  document.getElementById('mbody').innerHTML = rows.map(m =>
+    `<tr class="main" data-n="${esc(m.name)}">${MCOLS.map(c => `<td class="${c.cls || ''}">${c.f(m)}</td>`).join('')}</tr>` +
+    (mopen.has(m.name) && m.by.length ? `<tr class="detail"><td colspan="${MCOLS.length}"><div class="dgrid">` +
+      META.cats.filter(c => m.cats.includes(c.key)).map(c => `<div><h4>${esc(c.title)}</h4><table>` +
+        m.by.filter(b => b.cat === c.key).map(b =>
+          `<tr><td>${esc(b.name)}</td><td>${fmt(b.qty)} per run</td><td class="dim">≈ ${fmt(b.qty * (m.sell || 0))} ISK</td></tr>`).join('') +
+        '</table></div>').join('') + '</div></td></tr>' : '')).join('');
+  document.querySelectorAll('#mbody tr.main').forEach(tr => tr.onclick = () => {
+    const n = tr.dataset.n; mopen.has(n) ? mopen.delete(n) : mopen.add(n); renderMats();
+  });
+  document.getElementById('mcount').textContent = `${rows.length} of ${MATS.length} inputs`;
+}
+['mq', 'mkind', 'mcat'].forEach(id => document.getElementById(id).addEventListener('input', renderMats));
+
+['q', 'grp', 'liq', 'prof', 'own', 'have', 'hasbp'].forEach(id => document.getElementById(id).addEventListener('input', render));
+// ---- Shopping list: batches you plan to build -> everything you need to buy
+let CART = {};
+try { CART = JSON.parse(localStorage.getItem('eve-roi-cart') || '{}'); } catch (e) {}
+let SHOP = {list: 'planned', price: 'now', stock: 'use', what: 'all', rmode: 'keep', rdays: 7, onorder: true};
+try { Object.assign(SHOP, JSON.parse(localStorage.getItem('eve-roi-shopmode') || '{}')); } catch (e) {}
+const MATBY = Object.fromEntries(MATS.map(m => [m.tid, m]));
+const MATNAME = Object.fromEntries(MATS.map(m => [m.name, m]));
+const saveCart = () => { try { localStorage.setItem('eve-roi-cart', JSON.stringify(CART)); } catch (e) {} };
+function cartAdd(tid, n) {
+  CART[tid] = Math.max(0, (CART[tid] || 0) + n);
+  if (!CART[tid]) delete CART[tid];
+  saveCart();
+}
+const cartBtn = r => `<button class="addbtn ${CART[r.tid] ? 'in' : ''}" data-add="${r.tid}" title="${CART[r.tid] ? CART[r.tid] + ' batch(es) on your shopping list - click to add another' : 'Add one batch to the shopping list'}">${CART[r.tid] ? '×' + CART[r.tid] : '＋'}</button>`;
+function bindCartButtons(root, rerender) {
+  root.querySelectorAll('.addbtn').forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    cartAdd(+b.dataset.add, 1);
+    rerender();
+    renderTabs();
+  });
+}
+
+function shoppingLines(entries) {
+  const lines = {}, notes = [];
+  const add = (tid, name, qty, kind, forItem) => {
+    const l = lines[tid] ||= {tid, name, kind, need: 0, for: new Set()};
+    l.need += qty; l.for.add(forItem);
+  };
+  entries.forEach(({r, n}) => {
+    if (SHOP.what !== 'invention') r.materials.forEach(m => add(m.tid, m.name, m.qty * n, 'Material', r.name));
+    if (!r.bpo) {
+      const attempts = Math.ceil(n / r.chance);
+      if (SHOP.what !== 'materials') {
+        r.invlist.forEach(m => add(m.tid, m.name, m.qty * attempts, 'Datacore', r.name));
+        if (r.dec && r.dec !== 'None' && MATNAME[r.dec]) add(MATNAME[r.dec].tid, r.dec, attempts, 'Decryptor', r.name);
+      }
+      notes.push(`<b>${esc(r.name)}</b>: ${n} BPC${n === 1 ? '' : 's'} → ~${attempts} invention attempts (${pct(r.chance, 0)} chance) → needs ${attempts} run${attempts === 1 ? '' : 's'} of <i>${esc(r.t1)}</i> copies` +
+        (r.bph && r.bph.bpc ? ` · <span class="pos">you already hold ${r.bph.bpc} BPC (${r.bph.runs} runs)</span>` : '') +
+        (r.missing_skills && r.missing_skills.length ? ` · <span class="neg">needs ${esc(r.missing_skills.join(', '))}</span>` : ''));
+    } else if (META.character && !r.owned) {
+      notes.push(`<b>${esc(r.name)}</b>: <span class="neg">you don't own the BPO</span> (${esc(r.t1)}${r.bpoprice ? ', about ' + fmt(r.bpoprice) + ' ISK from NPC' : ''})`);
+    }
+  });
+  const stock = (TRACK && TRACK.mat_stock) || {};
+  return {notes, lines: Object.values(lines).map(l => {
+    const m = MATBY[l.tid] || {};
+    const have = SHOP.stock === 'use' ? (stock[l.tid] || 0) : 0;
+    const buy = Math.max(0, l.need - have);
+    const price = SHOP.price === 'orders' ? (m.buy ?? m.sell) : (m.sell ?? m.buy);
+    return {...l, forText: [...l.for].join(', '), have: Math.min(have, l.need), stockAll: stock[l.tid] || 0, buy,
+      price: price ?? null, cost: price ? buy * price : null, market: m.units ?? null,
+      short: SHOP.price === 'now' && m.units !== undefined && buy > (m.units || 0)};
+  })};
+}
+
+function renderShop() {
+  const el = document.getElementById('shopView');
+  if (SHOP.list === 'restock') return renderRestock(el);
+  const entries = Object.entries(CART).map(([tid, n]) => ({r: DATA.find(x => x.tid === +tid), n})).filter(e => e.r);
+  if (!entries.length) {
+    el.innerHTML = shopSwitch() + `<div class="help" style="padding-top:14px"><b>Your shopping list is empty.</b> Click the <button class="addbtn" disabled>＋</button>
+      button in front of any item in the Crafting &amp; Blueprints tabs to add a batch (one invented BPC, or one BPO job). Click again to add more.
+      Or switch to <b>Restock what I use</b> to buy back what your jobs consumed.</div>`;
+    return bindShopSwitch(el);
+  }
+  const {lines, notes} = shoppingLines(entries);
+  const tot = k => lines.reduce((a, l) => a + (l[k] || 0), 0);
+  const covered = lines.reduce((a, l) => a + l.have * (l.price || 0), 0);
+  const cost = entries.reduce((a, {r, n}) => a + r.cost * n, 0), profit = entries.reduce((a, {r, n}) => a + r.profit * n, 0);
+  const shortCount = lines.filter(l => l.short).length;
+  const multibuy = lines.filter(l => l.buy > 0).map(l => `${l.name}\t${l.buy}`).join('\n');
+  el.innerHTML = shopSwitch() + `<div class="cards">
+      ${card('To buy now', fmt(tot('cost')) + ' ISK', lines.filter(l => l.buy > 0).length + ' different items · ' + (SHOP.price === 'now' ? 'at sell orders' : 'at buy-order prices'))}
+      ${card('Covered by your stock', fmt(covered) + ' ISK', SHOP.stock === 'use' ? 'taken from your hangars' : 'stock ignored')}
+      ${card('Planned batches', entries.reduce((a, e) => a + e.n, 0), entries.length + ' item' + (entries.length === 1 ? '' : 's') + ' · total cost ~' + fmt(cost))}
+      ${card('Expected profit', fmt(profit) + ' ISK', 'if everything sells at today\'s price', sign(profit))}</div>
+    <div class="controls">
+      <span class="flabel">Price</span><span class="seg">${[['now', 'Buy now (sell orders)'], ['orders', 'Buy orders (cheaper, wait)']].map(([v, t]) =>
+        `<label class="chip"><input type="radio" name="sp" value="${v}" ${SHOP.price === v ? 'checked' : ''}><span>${t}</span></label>`).join('')}</span>
+      <span class="flabel">Stock</span><span class="seg">${[['use', 'Use my stock'], ['ignore', 'Ignore stock']].map(([v, t]) =>
+        `<label class="chip"><input type="radio" name="ss" value="${v}" ${SHOP.stock === v ? 'checked' : ''}><span>${t}</span></label>`).join('')}</span>
+      <span class="flabel">What</span><span class="seg">${[['all', 'Everything'], ['materials', 'Materials only'], ['invention', 'Invention only']].map(([v, t]) =>
+        `<label class="chip"><input type="radio" name="sw" value="${v}" ${SHOP.what === v ? 'checked' : ''}><span>${t}</span></label>`).join('')}</span>
+    </div>
+    <div class="wrap"><h3 class="sub">What you're building</h3><table class="plan"><thead><tr>
+      <th class="l">Item</th><th>Batches</th><th>Units</th><th>Cost</th><th>Expected profit</th><th>ROI</th><th></th></tr></thead><tbody>
+      ${entries.map(({r, n}) => `<tr><td class="l name">${icon(r.tid, '', r.name)}${esc(r.name)}</td>
+        <td><span class="stepper"><button data-dec="${r.tid}">−</button><input type="number" min="0" value="${n}" data-set="${r.tid}"><button data-inc="${r.tid}">＋</button></span></td>
+        <td>${fmt(r.units * n)}</td><td>${fmt(r.cost * n)}</td><td>${signed(r.profit * n)}</td><td>${signed(r.roi, pct)}</td>
+        <td><button class="linkbtn" data-rm="${r.tid}">remove</button></td></tr>`).join('')}
+    </tbody></table>
+    ${notes.length ? `<div class="help notes">${notes.join('<br>')}</div>` : ''}
+    <h3 class="sub">Shopping list ${shortCount ? `<span class="tag bad">${shortCount} not enough at Amarr</span>` : ''}
+      <span class="actions"><button id="copymb">Copy for Multibuy</button><button class="linkbtn" id="clearcart">Clear list</button></span></h3>
+    </div>
+    ${table('shop', [
+      {k: 'name', t: 'Item', cls: 'l name', f: l => icon(l.tid, 's', l.name) + esc(l.name)},
+      {k: 'kind', t: 'Type', cls: 'l', f: l => `<span class="dim">${l.kind}</span>`},
+      {k: 'need', t: 'Needed', f: l => fmt(l.need)},
+      {k: 'have', t: 'From stock', tip: 'Taken from your hangars (you have this many in total)', f: l => l.have ? `<span class="pos">${fmt(l.have)}</span>` : (SHOP.stock === 'use' && l.stockAll ? fmt(l.stockAll) : dash)},
+      {k: 'buy', t: 'To buy', f: l => l.buy ? `<b>${fmt(l.buy)}</b>` : '<span class="pos">✓ covered</span>'},
+      {k: 'price', t: SHOP.price === 'now' ? 'Sell price' : 'Buy-order price', f: l => num(l.price, 2)},
+      {k: 'cost', t: 'Cost', f: l => l.buy ? num(l.cost) : dash},
+      {k: 'market', t: 'On market', tip: 'Units for sale at Amarr right now', f: l => l.market === null ? dash : `<span class="${l.short ? 'neg' : 'dim'}">${fmt(l.market)}${l.short ? ' ⚠' : ''}</span>`},
+      {k: 'forText', t: 'For', cls: 'l', f: l => `<span class="dim">${esc(l.forText)}</span>`},
+    ], lines, 'cost')}
+    <div class="help">Datacores are for the <i>expected</i> number of invention attempts (batches ÷ your success chance, rounded up) — you may need a few more or fewer.
+      <b>Copy for Multibuy</b> puts every "to buy" line on the clipboard as <i>name, quantity</i>: in EVE open the market's <b>Multibuy</b> window and paste.</div>`;
+
+  bindShopSwitch(el);
+  const redo = () => { saveCart(); renderShop(); renderTabs(); };
+  el.querySelectorAll('[data-inc]').forEach(b => b.onclick = () => { cartAdd(+b.dataset.inc, 1); redo(); });
+  el.querySelectorAll('[data-dec]').forEach(b => b.onclick = () => { cartAdd(+b.dataset.dec, -1); redo(); });
+  el.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { delete CART[b.dataset.rm]; redo(); });
+  el.querySelectorAll('[data-set]').forEach(i => i.onchange = () => {
+    const v = Math.max(0, Math.round(+i.value || 0));
+    if (v) CART[i.dataset.set] = v; else delete CART[i.dataset.set];
+    redo();
+  });
+  [['sp', 'price'], ['ss', 'stock'], ['sw', 'what']].forEach(([name, key]) => el.querySelectorAll(`input[name=${name}]`).forEach(r => r.onchange = () => {
+    SHOP[key] = r.value;
+    try { localStorage.setItem('eve-roi-shopmode', JSON.stringify(SHOP)); } catch (e) {}
+    renderShop();
+  }));
+  el.querySelector('#clearcart').onclick = () => { if (confirm('Remove everything from the shopping list?')) { CART = {}; redo(); } };
+  el.querySelector('#copymb').onclick = async e => {
+    const b = e.target;
+    try { await navigator.clipboard.writeText(multibuy); }
+    catch (err) {  // file:// pages may not get clipboard access: fall back to a selected textarea
+      const ta = Object.assign(document.createElement('textarea'), {value: multibuy});
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+    }
+    b.textContent = '✓ Copied ' + multibuy.split('\n').filter(Boolean).length + ' lines';
+    setTimeout(() => b.textContent = 'Copy for Multibuy', 2000);
+  };
+  bindTable(el, 'shop', lines, renderShop);
+}
+
+// ---- Restock: buy back what your jobs consume
+const RESTOCK_WARN_DAYS = 3;
+function restockRows() {
+  if (!TRACK || !TRACK.restock) return [];
+  const useOrders = SHOP.onorder !== false;
+  return TRACK.restock.map(r => {
+    const m = MATBY[r.tid] || {};
+    const incoming = useOrders ? r.on_order : 0;
+    const daysLeft = r.per_day ? (r.stock + incoming) / r.per_day : null;
+    let buy;
+    if (SHOP.rmode === 'replace') buy = Math.max(0, (SHOP.rdays === 7 ? r.used7 : r.used30) - incoming);
+    else buy = Math.max(0, Math.ceil(r.per_day * SHOP.rdays - r.stock - incoming));
+    const price = SHOP.price === 'orders' ? (m.buy ?? m.sell ?? r.market) : (m.sell ?? m.buy ?? r.market);
+    return {...r, incoming, daysLeft, buy, price: price ?? null, cost: price ? buy * price : null,
+      marketUnits: m.units ?? null, short: SHOP.price === 'now' && m.units !== undefined && buy > (m.units || 0),
+      low: daysLeft !== null && daysLeft < RESTOCK_WARN_DAYS};
+  });
+}
+const restockLow = () => restockRows().filter(r => r.low).length;
+
+function shopSwitch() {
+  return `<div class="controls"><span class="flabel">List</span><span class="seg">${[['planned', 'Planned builds'], ['restock', 'Restock what I use']].map(([v, t]) =>
+    `<label class="chip"><input type="radio" name="sl" value="${v}" ${SHOP.list === v ? 'checked' : ''}><span>${t}</span></label>`).join('')}</span>
+    ${SHOP.list === 'restock' && restockLow() ? `<span class="tag bad">${restockLow()} running out within ${RESTOCK_WARN_DAYS} days</span>` : ''}</div>`;
+}
+function bindShopSwitch(el) {
+  el.querySelectorAll('input[name=sl]').forEach(r => r.onchange = () => {
+    SHOP.list = r.value;
+    try { localStorage.setItem('eve-roi-shopmode', JSON.stringify(SHOP)); } catch (e) {}
+    renderShop();
+  });
+}
+function copyMultibuy(btn, text) {
+  (async () => {
+    try { await navigator.clipboard.writeText(text); }
+    catch (err) {
+      const ta = Object.assign(document.createElement('textarea'), {value: text});
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+    }
+    btn.textContent = '✓ Copied ' + text.split('\n').filter(Boolean).length + ' lines';
+    setTimeout(() => btn.textContent = 'Copy for Multibuy', 2000);
+  })();
+}
+
+function renderRestock(el) {
+  if (!TRACK) return needLogin(el, 'Restocking');
+  if (!TRACK.restock || !TRACK.restock.length) {
+    el.innerHTML = shopSwitch() + `<div class="help" style="padding-top:10px"><b>Nothing to restock yet.</b> This list is built from what your
+      industry jobs consumed in the last 30 days. Once you've run manufacturing or invention jobs, it fills in on the next update.</div>`;
+    return bindShopSwitch(el);
+  }
+  const rows = restockRows();
+  const buying = rows.filter(r => r.buy > 0);
+  const total = buying.reduce((a, r) => a + (r.cost || 0), 0);
+  const multibuy = buying.map(r => `${r.name}\t${r.buy}`).join('\n');
+  const win = Math.round(TRACK.restock_window);
+  const dayOpts = SHOP.rmode === 'replace' ? [[7, 'last 7 days'], [30, 'last 30 days']] : [[3, '3 days'], [7, '7 days'], [14, '14 days'], [30, '30 days']];
+  el.innerHTML = shopSwitch() + `<div class="cards">
+      ${card('To buy', fmt(total) + ' ISK', buying.length + ' of ' + rows.length + ' inputs · ' + (SHOP.price === 'now' ? 'at sell orders' : 'at buy-order prices'))}
+      ${card('Running low', rows.filter(r => r.low).length, `less than ${RESTOCK_WARN_DAYS} days left at your usage`, rows.some(r => r.low) ? 'neg' : 'pos')}
+      ${card('Used in 7 days', fmt(rows.reduce((a, r) => a + r.used7 * (r.price || 0), 0)) + ' ISK', 'worth of inputs your jobs consumed')}
+      ${card('On your buy orders', fmt(rows.reduce((a, r) => a + r.on_order * (r.price || 0), 0)) + ' ISK', 'already ordered, counted as incoming')}</div>
+    <div class="controls">
+      <span class="flabel">Mode</span><span class="seg">${[['keep', 'Keep stock for'], ['replace', 'Replace what I used in']].map(([v, t]) =>
+        `<label class="chip"><input type="radio" name="rm" value="${v}" ${SHOP.rmode === v ? 'checked' : ''}><span>${t}</span></label>`).join('')}</span>
+      <span class="seg">${dayOpts.map(([v, t]) => `<label class="chip"><input type="radio" name="rd" value="${v}" ${SHOP.rdays === v ? 'checked' : ''}><span>${t}</span></label>`).join('')}</span>
+      <span class="flabel">Price</span><span class="seg">${[['now', 'Buy now'], ['orders', 'Buy orders']].map(([v, t]) =>
+        `<label class="chip"><input type="radio" name="sp" value="${v}" ${SHOP.price === v ? 'checked' : ''}><span>${t}</span></label>`).join('')}</span>
+      <label class="chip" title="Subtract what's still open on your buy orders"><input type="checkbox" id="onorder" ${SHOP.onorder !== false ? 'checked' : ''}><span>count my buy orders</span></label>
+      <span class="actions" style="margin-left:auto"><button id="copymb2">Copy for Multibuy</button></span>
+    </div>
+    ${table('restock', [
+      {k: 'name', t: 'Input', cls: 'l name', f: r => icon(r.tid, 's', r.name) + esc(r.name)},
+      {k: 'per_day', t: 'Used/day', tip: `Average over the last ${win} day${win === 1 ? '' : 's'} of job history`, f: r => fmt(r.per_day, r.per_day < 10 ? 1 : 0)},
+      {k: 'used7', t: 'Used 7d', f: r => r.used7 ? fmt(r.used7) : dash},
+      {k: 'stock', t: 'In stock', f: r => r.stock ? fmt(r.stock) : '<span class="neg">0</span>'},
+      {k: 'incoming', t: 'On buy orders', f: r => r.incoming ? fmt(r.incoming) : dash},
+      {k: 'daysLeft', t: 'Days left', f: r => r.daysLeft === null ? dash : `<span class="${r.low ? 'neg' : r.daysLeft < SHOP.rdays ? 'warnc' : 'pos'}">${r.daysLeft < 0.1 ? '<0.1' : r.daysLeft.toFixed(1)}</span>`},
+      {k: 'buy', t: 'To buy', f: r => r.buy ? `<b>${fmt(r.buy)}</b>` : '<span class="pos">✓ enough</span>'},
+      {k: 'price', t: SHOP.price === 'now' ? 'Sell price' : 'Buy-order price', f: r => num(r.price, 2)},
+      {k: 'cost', t: 'Cost', f: r => r.buy ? num(r.cost) : dash},
+      {k: 'marketUnits', t: 'On market', tip: 'Units for sale at Amarr right now', f: r => r.marketUnits === null ? dash : `<span class="${r.short ? 'neg' : 'dim'}">${fmt(r.marketUnits)}${r.short ? ' ⚠' : ''}</span>`},
+    ], rows, 'daysLeft', null, 1)}
+    <div class="help"><b>How it works:</b> every manufacturing and invention job you start consumes inputs (blueprint recipe × runs at the blueprint's ME,
+      datacores per attempt). Usage per day is averaged over your last ${win} day${win === 1 ? '' : 's'} of job history (up to 30).
+      <b>Keep stock for N days</b> buys up to N days of usage minus what you have and what's on your buy orders.
+      <b>Replace what I used</b> buys back exactly what your jobs consumed in that period. Update right before you shop.</div>`;
+  bindShopSwitch(el);
+  const save = () => { try { localStorage.setItem('eve-roi-shopmode', JSON.stringify(SHOP)); } catch (e) {} renderShop(); renderTabs(); };
+  el.querySelectorAll('input[name=rm]').forEach(r => r.onchange = () => { SHOP.rmode = r.value; SHOP.rdays = r.value === 'replace' ? 7 : 7; save(); });
+  el.querySelectorAll('input[name=rd]').forEach(r => r.onchange = () => { SHOP.rdays = +r.value; save(); });
+  el.querySelectorAll('input[name=sp]').forEach(r => r.onchange = () => { SHOP.price = r.value; save(); });
+  el.querySelector('#onorder').onchange = e => { SHOP.onorder = e.target.checked; save(); };
+  el.querySelector('#copymb2').onclick = e => copyMultibuy(e.target, multibuy);
+  bindTable(el, 'restock', rows, renderShop);
+}
+
+// ---------------------------------------------------------------- tracking tabs
+const STATUS = {
+  undercut: ['bad', 'undercut'], outbid: ['bad', 'outbid'], tied: ['warn', 'tied'],
+  best: ['own', 'best price'], alone: ['own', 'only order'],
+};
+const ago = d => d < 1 ? Math.max(1, Math.round(d * 24)) + 'h ago' : Math.round(d) + 'd ago';
+const dash = '<span class="dim">–</span>';
+const num = (v, d = 0) => v === null || v === undefined ? dash : fmt(v, d);
+const signed = (v, f = fmt) => v === null || v === undefined ? dash : `<span class="${sign(v)}">${f(v)}</span>`;
+const card = (k, v, s, cls = '') => `<div class="card"><div class="k">${k}</div><div class="v ${cls}">${v}</div><div class="s">${s}</div></div>`;
+const radios = (name, opts, cur) => opts.map(([v, t]) =>
+  `<label><input type="radio" name="${name}" value="${v}" ${String(cur) === String(v) ? 'checked' : ''}> ${t}</label>`).join('');
+const PERIODS = [[1, '24h'], [7, '7 days'], [30, '30 days'], [0, 'All stored']];
+const inPeriod = (age, d) => !d || age <= d;
+
+// sortable table: cols = [{k, t, cls, f}], state kept per table id
+const tstate = {};
+function table(id, cols, rows, defKey, extraRow, defDir = -1) {
+  const st = tstate[id] ||= {k: defKey, d: defDir};
+  const val = x => x === null || x === undefined || (typeof x === 'number' && !isFinite(x)) ? (st.d < 0 ? -Infinity : Infinity) : x;
+  const sorted = [...rows].sort((a, b) => {
+    const x = val(a[st.k]), y = val(b[st.k]);
+    return (typeof x === 'string' ? x.localeCompare(y) : x - y) * st.d;
+  });
+  return `<div class="wrap"><table data-t="${id}"><thead><tr>${cols.map(c =>
+    `<th class="${c.cls || ''} ${c.k === st.k ? 'sorted' : ''}" data-k="${c.k}" ${c.tip ? `title="${esc(c.tip)}"` : ''}>${c.t}${c.k === st.k ? (st.d < 0 ? ' ▾' : ' ▴') : ''}</th>`).join('')}
+    </tr></thead><tbody>${sorted.map((r, i) => `<tr class="${extraRow ? 'main' : ''}" data-i="${rows.indexOf(r)}">${cols.map(c =>
+      `<td class="${c.cls || ''}">${c.f(r)}</td>`).join('')}</tr>${extraRow ? extraRow(r) : ''}`).join('')
+    || `<tr><td colspan="${cols.length}" class="dim" style="text-align:center;padding:18px">nothing here yet</td></tr>`}</tbody></table></div>`;
+}
+function bindTable(el, id, rows, rerender, onRow) {
+  el.querySelectorAll(`table[data-t="${id}"] th`).forEach(th => th.onclick = () => {
+    const st = tstate[id], k = th.dataset.k;
+    st.d = k === st.k ? -st.d : (typeof rows.find(r => r[k] !== null && r[k] !== undefined)?.[k] === 'string' ? 1 : -1);
+    st.k = k; rerender();
+  });
+  if (onRow) el.querySelectorAll(`table[data-t="${id}"] tr.main`).forEach(tr => tr.onclick = () => onRow(rows[+tr.dataset.i]));
+}
+
+function needLogin(el, what) {
+  el.innerHTML = `<div class="help" style="padding-top:10px"><b>Not available yet.</b> ${what} needs extra permissions.
+    Run <b>login.bat</b> once more and accept them, then this tab fills in on every run.</div>`;
+}
+
+// ---- My Orders
+let ofilter = 'all';
+const PAT_STEPS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 5, 7, 10, 14];
+let patience = null;
+try { patience = +localStorage.getItem('eve-roi-patience') || null; } catch (e) {}
+const getPatience = () => patience ?? (TRACK && TRACK.relist_patience) ?? 2;
+const patLabel = d => d < 1 ? Math.round(d * 24) + ' hours' : d === 1 ? '1 day' : d + ' days';
+// advice from the order's fill time and the chosen patience
+function orderAdvice(o) {
+  if (!['undercut', 'outbid', 'tied'].includes(o.status)) return null;
+  if (o.fill_days !== null && o.fill_days <= getPatience()) return 'wait';
+  if (!o.vol) return 'no volume';
+  return 'undercut';
+}
+
+function renderOrders() {
+  const el = document.getElementById('ordersView');
+  if (!TRACK) return needLogin(el, 'Order tracking');
+  TRACK.orders.forEach(o => o.advice = orderAdvice(o));
+  const all = TRACK.orders, sells = all.filter(o => !o.buy), buys = all.filter(o => o.buy);
+  const bad = all.filter(o => STATUS[o.status][0] === 'bad');
+  const waitable = bad.filter(o => o.advice === 'wait');
+  const toFix = bad.filter(o => o.advice === 'undercut');
+  const rows = all.filter(o => ofilter === 'all' || (ofilter === 'bad' ? bad.includes(o) : ofilter === 'sell' ? !o.buy : o.buy))
+    .map(o => ({...o, bad: o.advice === 'undercut' ? 2 : STATUS[o.status][0] === 'bad' ? 1 : 0}));
+  const sum = xs => xs.reduce((s, o) => s + o.value, 0);
+  const pat = getPatience();
+  const days = d => d === null || d === undefined ? '–' : d < 0.05 ? '<1h' : d < 1 ? Math.round(d * 24) + 'h' : d.toFixed(1) + 'd';
+  const advice = o => o.advice === 'wait' ? `<span class="tag own" title="Everything ahead of you plus your order sells in ~${days(o.fill_days)} at the normal daily volume - save the relist fee">wait · fills in ~${days(o.fill_days)}</span>`
+    : o.advice === 'undercut' ? `<span class="tag bad" title="Without undercutting it takes ~${days(o.fill_days)} to fill; first in line ~${days(o.fill_days_top)}">undercut · else ~${days(o.fill_days)}</span>`
+    : o.advice === 'no volume' ? `<span class="tag warn" title="This item barely trades - a lower price won't make it sell much faster">no volume</span>`
+    : `<span class="tag ${STATUS[o.status][0]}">${STATUS[o.status][1]}</span>`;
+  el.innerHTML = `<div class="cards">
+      ${card('Sell orders', sells.length, fmt(sum(sells)) + ' ISK listed')}
+      ${card('Buy orders', buys.length, fmt(sum(buys)) + ' ISK to spend · ' + fmt(buys.reduce((s, o) => s + (o.escrow || 0), 0)) + ' in escrow')}
+      ${card('Worth undercutting', toFix.length, toFix.length ? 'relist fees ' + fmt(toFix.reduce((s, o) => s + (o.relist_fee || 0), 0)) + ' ISK' : 'nothing urgent', toFix.length ? 'neg' : 'pos')}
+      ${card('Undercut but just wait', waitable.length, waitable.length ? `market eats them within ${patLabel(pat)} · saves ${fmt(waitable.reduce((s, o) => s + (o.relist_fee || 0), 0))} ISK fees` : `none sell within ${patLabel(pat)} anyway`, waitable.length ? 'pos' : '')}</div>
+    <div class="help"><b>Ahead of you</b> = units at the same station that sell before yours (cheaper, or same price listed earlier).
+      <b>Fills in</b> = (ahead + your remaining) ÷ the item's typical daily volume — how long until your order is gone <i>without</i> touching it.
+      <b>Relist fee</b> = what modifying to the <b>new price</b> costs (broker fee on the order value, minus your Advanced Broker Relations discount); below: revenue you give up by lowering the price.
+      If it fills within your chosen time anyway, the advice is <span class="tag own">wait</span>.</div>
+    <div class="controls patience"><span class="flabel">Wait instead of undercutting if the order fills within</span>
+      <input type="range" id="pat" min="0" max="${PAT_STEPS.length - 1}" step="1" value="${PAT_STEPS.reduce((bi, v, i) => Math.abs(v - pat) < Math.abs(PAT_STEPS[bi] - pat) ? i : bi, 0)}">
+      <b id="patv">${patLabel(pat)}</b>
+      <span class="dim">· shorter = undercut more often (faster sales, more fees) · longer = wait more (fewer fees, slower)</span></div>
+    <div class="controls">${radios('of', [['all', 'All'], ['bad', 'Undercut / outbid'], ['sell', 'Sell orders'], ['buy', 'Buy orders']], ofilter)}
+      <span class="dim">${rows.length} orders</span></div>
+    ${table('orders', [
+      {k: 'name', t: 'Item', cls: 'l name', f: o => icon(o.tid, '', o.name) + `<span class="stack"><span class="trunc">${esc(o.name)}</span>` +
+          sub(`<span class="tag ${o.buy ? '' : 'own'}">${o.buy ? 'BUY' : 'SELL'}</span> <span class="trunc" title="${esc(o.loc)}">${esc(o.loc.split(' - ')[0])}</span>`) + '</span>'},
+      {k: 'bad', t: 'Advice', cls: 'l', f: advice},
+      {k: 'price', t: 'My price', f: o => fmt(o.price, 2) + sub(o.best === null ? 'no competitors' : `best other ${fmt(o.best, 2)} (${o.competitors})`)},
+      {k: 'fix', t: 'New price', tip: 'One price step past the best competitor', f: o => o.fix === null ? dash : '<b>' + fmt(o.fix, 2) + '</b>' + sub(`gap ${fmt(o.gap, 2)}`)},
+      {k: 'relist_fee', t: 'Relist fee', tip: 'What modifying the order to the new price costs; below: revenue given up by the lower price', f: o => o.relist_fee === null ? dash :
+          `<span class="neg">${fmt(o.relist_fee)}</span>` + sub(`−${fmt(o.price_drop)} price`)},
+      {k: 'ahead', t: 'Ahead of you', tip: 'Units at the same station that sell before yours', f: o => o.ahead ? fmt(o.ahead) : '<span class="pos">first</span>'},
+      {k: 'fill_days', t: 'Fills in', tip: '(ahead + your remaining) ÷ typical daily volume', f: o => o.fill_days === null ? '<span class="tag warn">no volume</span>' :
+          `<span class="${o.fill_days <= pat ? 'pos' : o.fill_days > 14 ? 'neg' : ''}">~${days(o.fill_days)}</span>` + sub(`${fmt(o.vol)}/day traded`)},
+      {k: 'remain', t: 'Remaining', f: o => fmt(o.remain) + sub('of ' + fmt(o.total))},
+      {k: 'value', t: 'Value', f: o => fmt(o.value)},
+      {k: 'margin', t: 'Margin', f: o => signed(o.margin, pct)},
+      {k: 'expires_days', t: 'Expires', f: o => `<span class="${o.expires_days < 3 ? 'neg' : ''}">${o.expires_days.toFixed(1)}d</span>`},
+    ], rows, 'bad')}`;
+  el.querySelectorAll('input[name=of]').forEach(r => r.onchange = () => { ofilter = r.value; renderOrders(); });
+  const slider = el.querySelector('#pat');
+  slider.oninput = () => { el.querySelector('#patv').textContent = patLabel(PAT_STEPS[+slider.value]); };
+  slider.onchange = () => {
+    patience = PAT_STEPS[+slider.value];
+    try { localStorage.setItem('eve-roi-patience', patience); } catch (e) {}
+    renderOrders(); renderTabs();
+  };
+  bindTable(el, 'orders', rows, renderOrders);
+}
+
+// ---- Trades: what you sold, with only real values (your sales, the tax and broker fees you paid, what it cost you)
+let tdays = 30, tview = 'timeline', tbuys = false;
+const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const dayLabel = d => {  // d = 'YYYY-MM-DD' (EVE time = UTC)
+  const dt = new Date(d + 'T00:00:00Z'), today = new Date().toISOString().slice(0, 10);
+  const yest = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+  const base = `${WD[dt.getUTCDay()]} ${dt.getUTCDate()} ${MO[dt.getUTCMonth()]}`;
+  return d === today ? 'Today · ' + base : d === yest ? 'Yesterday · ' + base : base;
+};
+
+// everything for one period: per sale and per item, real values only
+function tradeBook(days) {
+  const P = (TRACK && TRACK.pnl) || {fees: [], cost: {}};
+  const tx = TRACK.tx.filter(t => inPeriod(t.age, days));
+  const fees = P.fees.filter(f => inPeriod(f.age, days));
+  const itemFees = {};
+  fees.filter(f => f.tid !== null && !f.buy).forEach(f => itemFees[f.tid] = (itemFees[f.tid] || 0) + f.amt);
+  const unassigned = fees.filter(f => f.tid === null).reduce((a, f) => a + f.amt, 0);
+  const buyFees = fees.filter(f => f.tid !== null && f.buy).reduce((a, f) => a + f.amt, 0);
+  const soldQty = {};
+  tx.filter(t => !t.buy).forEach(t => soldQty[t.tid] = (soldQty[t.tid] || 0) + t.qty);
+  // per sale: its own tax, a share of the item's real broker fees (by units), its real cost
+  tx.forEach(t => {
+    if (t.buy) return;
+    const c = P.cost[t.tid];
+    t.broker = itemFees[t.tid] ? itemFees[t.tid] * t.qty / soldQty[t.tid] : 0;
+    t.cost = c ? t.qty * c.cpu : null;
+    t.profit = c ? t.total - (t.tax || 0) - t.broker - t.cost : null;
+    t.real = !!c && c.real && t.tax !== null && t.tax !== undefined;
+  });
+  const per = {};
+  tx.forEach(t => {
+    const p = per[t.tid] ||= {tid: t.tid, name: t.name, sq: 0, sisk: 0, bq: 0, bisk: 0, tax: 0, notax: 0, lastAge: null, last: null};
+    if (t.buy) { p.bq += t.qty; p.bisk += t.total; return; }
+    p.sq += t.qty; p.sisk += t.total;
+    if (t.tax !== null && t.tax !== undefined) p.tax += t.tax; else p.notax++;
+    if (p.lastAge === null || t.age < p.lastAge) { p.lastAge = t.age; p.last = t.date; }
+  });
+  const span = days || Math.max(1, Math.ceil(Math.max(1, ...TRACK.tx.map(t => t.age))));
+  const items = Object.values(per).map(p => {
+    const c = P.cost[p.tid];
+    const broker = itemFees[p.tid] || 0;
+    const cost = c && p.sq ? p.sq * c.cpu : null;
+    const profit = cost === null ? null : p.sisk - p.tax - broker - cost;
+    return {...p, broker, c, cpu: c ? c.cpu : null, cost, profit, real: !!c && c.real && !p.notax,
+      margin: profit === null || !p.sisk ? null : profit / p.sisk, savg: p.sq ? p.sisk / p.sq : null,
+      bavg: p.bq ? p.bisk / p.bq : null, rate: p.sq / span, coverage: c ? c.coverage : null};
+  });
+  return {tx, items, unassigned, buyFees};
+}
+const profitCell = (v, real, c, why) => v === null ? `<span class="tag warn" title="No job or purchase record for this item in your stored history">no cost data</span>` :
+  real ? signed(v) : `${signed(v)} <span class="tag" title="${esc('Filled in: ' + (why || ''))}">part est.</span>`;
+const partlyWhy = c => !c ? '' : [c.coverage < 0.995 ? `${pct(1 - c.coverage, 0)} of the material cost is materials you didn't buy within the stored history (valued at today's Amarr price)` : '',
+  c.inv_est ? 'no recorded invention of your own for this blueprint yet (invention share = report estimate)' : ''].filter(Boolean).join('; ') || 'a sale without a tax record';
+
+function renderTrades() {
+  const el = document.getElementById('tradesView');
+  if (!TRACK) return needLogin(el, 'Trade tracking');
+  const {tx, items, unassigned, buyFees} = tradeBook(tdays);
+  const sold = tx.filter(t => !t.buy), bought = tx.filter(t => t.buy);
+  const s = (xs, k = 'total') => xs.reduce((a, t) => a + (t[k] || 0), 0);
+  const realItems = items.filter(i => i.sq && i.real), partItems = items.filter(i => i.sq && !i.real);
+  const withCost = items.filter(i => i.sq && i.profit !== null);
+  const realProfit = s(withCost, 'profit') - unassigned;
+  const costAll = s(withCost, 'cost');
+  const costOwn = withCost.reduce((a, i) => a + i.cost * (i.c.coverage ?? 1) * (i.c.inv_est ? 0.99 : 1), 0);
+  const taxPaid = s(sold, 'tax'), brokerPaid = s(items, 'broker') + unassigned;
+
+  // per day
+  const days = {};
+  tx.forEach(t => {
+    if (t.buy && !tbuys) return;
+    const d = t.date.slice(0, 10);
+    const x = days[d] ||= {day: d, rows: [], sold: 0, bought: 0, profit: 0, partial: 0, n: 0};
+    x.rows.push(t);
+    if (t.buy) x.bought += t.total;
+    else { x.sold += t.total; x.n++; if (t.profit !== null) x.profit += t.profit; else x.partial++; }
+  });
+  const first = tx.length ? tx.reduce((m, t) => t.date < m ? t.date : m, tx[0].date).slice(0, 10) : null;
+  const chartDays = [];
+  if (first) for (let d = new Date(first + 'T00:00:00Z'); d <= new Date(); d = new Date(+d + 864e5)) chartDays.push(d.toISOString().slice(0, 10));
+  const mx = Math.max(1, ...chartDays.map(d => days[d]?.sold || 0));
+  const best = chartDays.reduce((b, d) => (days[d]?.sold || 0) > (days[b]?.sold || 0) ? d : b, chartDays[0]);
+  const activeDays = chartDays.filter(d => days[d]?.sold).length;
+
+  const timeline = Object.values(days).sort((a, b) => b.day.localeCompare(a.day)).map(x => {
+    const top = {};
+    x.rows.filter(t => !t.buy).forEach(t => top[t.name] = (top[t.name] || 0) + t.total);
+    const topList = Object.entries(top).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([n]) => esc(n)).join(', ');
+    const rows = [...x.rows].sort((a, b) => b.date.localeCompare(a.date));
+    return `<div class="dayhead" data-d="${x.day}"><b>${dayLabel(x.day)}</b>
+        <span>${x.n} sale${x.n === 1 ? '' : 's'} · <span class="pos">${fmt(x.sold)} ISK</span> · profit <span class="${sign(x.profit)}">${fmt(x.profit)}</span>${x.partial ? ` <span class="dim">(${x.partial} without cost data)</span>` : ''}${x.bought ? ` · bought ${fmt(x.bought)}` : ''}</span>
+        <span class="dim">${topList}</span></div>
+      <table class="daytab"><thead><tr class="dim"><th class="l">Time</th><th class="l">Item</th><th></th><th>Qty</th><th>Price</th><th>Total</th><th>Sales tax</th><th>Broker share</th><th>Profit</th><th class="l">Station</th></tr></thead><tbody>${rows.map(t => `
+        <tr><td class="l dim" style="width:60px">${t.date.slice(11)}</td>
+          <td class="l name">${icon(t.tid, 's', t.name)}${esc(t.name)}</td>
+          <td class="l"><span class="tag ${t.buy ? '' : 'own'}">${t.buy ? 'BOUGHT' : 'SOLD'}</span></td>
+          <td>${fmt(t.qty)} ×</td><td>${fmt(t.price, 2)}</td>
+          <td class="${t.buy ? '' : 'pos'}">${fmt(t.total)}</td>
+          <td>${t.buy ? '' : t.tax === null || t.tax === undefined ? '<span class="tag warn">no tax record</span>' : fmt(t.tax)}</td>
+          <td class="dim">${t.buy || !t.broker ? '' : fmt(t.broker)}</td>
+          <td>${t.buy ? '' : profitCell(t.profit, t.real, TRACK.pnl.cost[t.tid], partlyWhy(TRACK.pnl.cost[t.tid]))}</td>
+          <td class="l dim">${esc(t.loc)}</td></tr>`).join('')}</tbody></table>`;
+  }).join('') || '<div class="dim" style="padding:18px 20px">No sales in this period.</div>';
+
+  el.innerHTML = `<div class="cards">
+      ${card('Sold', fmt(s(sold)) + ' ISK', sold.length + ' sales on ' + activeDays + ' day' + (activeDays === 1 ? '' : 's'), 'pos')}
+      ${card('Taxes & broker fees paid', fmt(taxPaid + brokerPaid + buyFees) + ' ISK', `sales tax ${fmt(taxPaid)} · broker ${fmt(brokerPaid)}${unassigned ? ' (' + fmt(unassigned) + ' unassigned)' : ''}${buyFees ? ' · buy orders ' + fmt(buyFees) : ''}`, 'neg')}
+      ${card('Profit', fmt(realProfit) + ' ISK', `${withCost.length} items · ${costAll ? pct(costOwn / costAll, 0) : '–'} of their cost from your own records, rest filled in (market price / invention estimate)` +
+        `${unassigned ? ' · unassigned broker fees subtracted' : ''}${items.some(i => i.sq && i.profit === null) ? ' · ' + fmt(s(items.filter(i => i.sq && i.profit === null), 'sisk')) + ' sales without any cost data not counted' : ''}`, sign(realProfit))}
+      ${card('Best day', best && days[best]?.sold ? fmt(days[best].sold) + ' ISK' : '–', best && days[best]?.sold ? dayLabel(best) : 'no sales yet')}</div>
+    <div class="controls">${radios('td', PERIODS, tdays)} <span class="dim">·</span>
+      ${radios('tv', [['timeline', 'Timeline'], ['items', 'Per item'], ['list', 'All transactions']], tview)}
+      ${tview === 'timeline' ? `<span class="dim">·</span><label class="chip"><input type="checkbox" id="tbuys" ${tbuys ? 'checked' : ''}><span>include purchases</span></label>` : ''}</div>
+    ${chartDays.length > 1 ? `<div class="wrap"><div class="days sales">${chartDays.map(d => {
+      const v = days[d]?.sold || 0;
+      return `<div class="day" data-d="${d}" title="${dayLabel(d)}: ${fmt(v)} ISK sold${days[d]?.n ? ' in ' + days[d].n + ' sales · real profit ' + fmt(days[d].profit) : ''}"><div class="up" style="height:${v ? Math.max(3, 60 * v / mx) : 1}px"></div></div>`;
+    }).join('')}</div>
+      <div class="dim" style="font-size:11px;margin:4px 0 12px;display:flex;justify-content:space-between"><span>${dayLabel(chartDays[0])}</span>
+      <span>ISK sold per day (EVE time) · click a bar to jump to that day</span><span>${dayLabel(chartDays[chartDays.length - 1])}</span></div></div>` : ''}
+    ${tview === 'timeline' ? `<div class="wrap timeline">${timeline}</div>` : tview === 'items' ? table('trades', [
+      {k: 'name', t: 'Item', cls: 'l name', f: i => icon(i.tid, '', i.name) + `<span class="stack"><span class="trunc">${esc(i.name)}</span>` +
+          sub(i.lastAge === null ? (i.bq ? `bought ${fmt(i.bq)} · avg ${fmt(i.bavg, 2)}` : '') : `last sold ${ago(i.lastAge)} · ${fmt(i.rate, i.rate < 10 ? 1 : 0)}/day`) + '</span>'},
+      {k: 'sq', t: 'Sold', f: i => i.sq ? fmt(i.sq) + sub('avg ' + fmt(i.savg, 2)) : dash},
+      {k: 'sisk', t: 'Revenue', f: i => i.sisk ? `<span class="pos">${fmt(i.sisk)}</span>` : dash},
+      {k: 'tax', t: 'Sales tax', f: i => i.sq ? fmt(i.tax) + (i.notax ? sub(`<span class="tag warn">${i.notax} without tax record</span>`) : sub('real')) : dash},
+      {k: 'broker', t: 'Broker fees', tip: 'Fees matched to this item\'s orders (placing and every modification)', f: i => i.broker ? fmt(i.broker) + sub('matched') : dash},
+      {k: 'cost', t: 'Cost', f: i => !i.sq ? dash : i.cost === null ? '<span class="tag warn">no cost data</span>' :
+          fmt(i.cost) + sub(`${fmt(i.cpu, 2)}/unit · <span class="tag ${i.c.src === 'built' ? 'own' : ''}">${i.c.src}</span>`)},
+      {k: 'profit', t: 'Profit', f: i => i.sq ? profitCell(i.profit, i.real, i.c, partlyWhy(i.c)) : dash},
+      {k: 'margin', t: 'Margin', f: i => i.margin === null ? dash : signed(i.margin, pct)},
+      {k: 'coverage', t: 'From your records', tip: 'Share of the cost backed by your own buy records', f: i => i.coverage === null ? dash :
+          `<span class="${i.real ? 'pos' : i.coverage >= 0.5 ? 'warnc' : 'neg'}">${pct(i.coverage, 0)}</span>` + (i.c && i.c.inv_est ? sub('<span class="tag warn">inv. est.</span>') : '')},
+    ], items, 'sisk') : table('txlist', [
+      {k: 'age', t: 'When (EVE)', cls: 'l', f: t => `<span title="${ago(t.age)}">${t.date}</span>`},
+      {k: 'name', t: 'Item', cls: 'l name', f: t => icon(t.tid, 's', t.name) + esc(t.name)},
+      {k: 'buy', t: 'Type', cls: 'l', f: t => `<span class="tag ${t.buy ? '' : 'own'}">${t.buy ? 'BOUGHT' : 'SOLD'}</span>`},
+      {k: 'qty', t: 'Qty', f: t => fmt(t.qty)}, {k: 'price', t: 'Price', f: t => fmt(t.price, 2)},
+      {k: 'total', t: 'Total', f: t => `<span class="${t.buy ? '' : 'pos'}">${fmt(t.total)}</span>`},
+      {k: 'tax', t: 'Sales tax', f: t => t.buy ? '' : t.tax === null || t.tax === undefined ? '<span class="tag warn">no record</span>' : fmt(t.tax)},
+      {k: 'profit', t: 'Profit', f: t => t.buy ? '' : profitCell(t.profit, t.real, TRACK.pnl.cost[t.tid], partlyWhy(TRACK.pnl.cost[t.tid]))},
+      {k: 'loc', t: 'Station', cls: 'l', f: t => `<span class="dim">${esc(t.loc)}</span>`},
+    ], tx.slice(0, 1000), 'age', null, 1)}
+    <div class="help" style="margin-top:8px"><b>Real values wherever your records have them:</b> <b>sales tax</b> = the tax entry in your wallet for that exact sale.
+      <b>Broker fees</b> = the fee entries in your wallet matched to the item's orders (placing and every modification); per sale you see that item's fees shared by units sold.
+      Fees whose order couldn't be identified (changes made before the tool recorded your orders) aren't guessed onto items — they're listed as <i>unassigned</i> and subtracted from the total.
+      <b>Cost</b> = what your finished jobs consumed at the price <i>you paid</i>, the job fees from your wallet and your own invention spend per success — or what you paid when trading.
+      <span class="tag">part est.</span> = part of the cost isn't in your records yet and is filled in: materials you didn't buy within the stored history at today's Amarr price, inventions from before tracking at the report's estimate (hover the tag for details). Everything else is real and these fill-ins disappear as your history grows.
+      Times are EVE time.</div>`;
+  el.querySelectorAll('input[name=td]').forEach(r => r.onchange = () => { tdays = +r.value; renderTrades(); });
+  el.querySelectorAll('input[name=tv]').forEach(r => r.onchange = () => { tview = r.value; renderTrades(); });
+  const tb = el.querySelector('#tbuys');
+  if (tb) tb.onchange = () => { tbuys = tb.checked; renderTrades(); };
+  el.querySelectorAll('.days.sales .day').forEach(b => b.onclick = () => {
+    if (tview !== 'timeline') { tview = 'timeline'; renderTrades(); }
+    const h = document.querySelector(`.dayhead[data-d="${b.dataset.d}"]`);
+    if (h) { h.scrollIntoView({behavior: 'smooth', block: 'start'}); h.classList.add('flash'); setTimeout(() => h.classList.remove('flash'), 1200); }
+  });
+  bindTable(el, 'trades', items, renderTrades);
+  bindTable(el, 'txlist', tx, renderTrades);
+}
+
+// ---- Production (real cost per product)
+function renderProduction() {
+  const el = document.getElementById('productionView');
+  if (!TRACK) return needLogin(el, 'Production tracking');
+  if (!TRACK.have_industry && !TRACK.jobs.length) return needLogin(el, 'Production tracking (industry jobs + assets)');
+  const rows = TRACK.production;
+  const tot = k => rows.reduce((a, r) => a + (r[k] || 0), 0);
+  const real = rows.filter(r => r.cpu !== null);
+  el.innerHTML = `<div class="cards">
+      ${card('Products tracked', rows.length, real.length + ' with real costs from your jobs')}
+      ${card('Revenue (all stored)', fmt(tot('revenue')) + ' ISK', 'from selling these products', 'pos')}
+      ${card('Real profit', fmt(tot('profit')) + ' ISK', 'after tax + broker, at your production cost', sign(tot('profit')))}
+      ${card('Finished goods', fmt(tot('stock_value')) + ' ISK', 'in hangar + on sell orders, at cost')}</div>
+    <div class="help"><b>Real cost/unit</b> comes from your finished jobs: the materials each job consumed (recipe × runs at the blueprint's ME)
+      at <i>your average purchase price</i>, plus the real job fee, plus for T2 your real invention cost per BPC
+      (all datacores + invention fees ÷ your successes). <b>vs estimate</b> compares it with this report's calculated cost —
+      positive = you're paying more than the tool thinks. Materials you never bought (mined, looted) are valued at market price.</div>
+    ${table('prod', [
+      {k: 'name', t: 'Product', cls: 'l name', f: r => icon(r.tid, '', r.name) + esc(r.name)},
+      {k: 'jobs', t: 'Jobs', f: r => r.jobs || dash},
+      {k: 'built', t: 'Built', f: r => (r.built ? fmt(r.built) : dash) + (r.building ? ` <span class="dim">+${fmt(r.building)} running</span>` : '')},
+      {k: 'cpu', t: 'Real cost/unit', f: r => r.cpu === null ? dash : '<b>' + fmt(r.cpu, 2) + '</b>'},
+      {k: 'est', t: 'Estimate', f: r => num(r.est, 2)},
+      {k: 'vs_est', t: 'vs estimate', f: r => r.vs_est === null ? dash : `<span class="${r.vs_est > 0.05 ? 'neg' : r.vs_est < -0.05 ? 'pos' : 'dim'}">${r.vs_est > 0 ? '+' : ''}${pct(r.vs_est)}</span>`},
+      {k: 'market', t: 'Amarr now', f: r => num(r.market, 2)},
+      {k: 'sold', t: 'Sold', f: r => r.sold ? fmt(r.sold) : dash},
+      {k: 'avg_sell', t: 'Avg sell', f: r => num(r.avg_sell, 2)},
+      {k: 'margin', t: 'Margin', f: r => signed(r.margin, pct)},
+      {k: 'profit', t: 'Profit', f: r => signed(r.profit)},
+      {k: 'stock', t: 'In stock', f: r => (r.stock ? fmt(r.stock) : dash) + (r.listed ? ` <span class="dim">+${fmt(r.listed)} listed</span>` : '')},
+      {k: 'cost_source', t: 'Cost from', cls: 'l', f: r => `<span class="tag ${r.cost_source === 'your jobs' ? 'own' : ''}">${r.cost_source}</span>`},
+    ], rows, 'revenue')}`;
+  bindTable(el, 'prod', rows, renderProduction);
+}
+
+// ---- Material ledger
+let lfilter = 'all';
+function renderLedger() {
+  const el = document.getElementById('ledgerView');
+  if (!TRACK) return needLogin(el, 'The material ledger');
+  const all = TRACK.ledger;
+  const rows = all.filter(r => lfilter === 'all' || (lfilter === 'stock' ? r.stock > 0 : lfilter === 'low' ? r.days_left !== null && r.days_left < 7 : r.bought > 0));
+  const tot = k => all.reduce((a, r) => a + (r[k] || 0), 0);
+  const over = all.filter(r => r.vs_market !== null && r.vs_market > 0.05);
+  el.innerHTML = `<div class="cards">
+      ${card('Spent on materials', fmt(tot('spent')) + ' ISK', all.filter(r => r.bought).length + ' different materials bought')}
+      ${card('Materials in stock', fmt(tot('stock_value')) + ' ISK', 'valued at your average cost')}
+      ${card('Running low', all.filter(r => r.days_left !== null && r.days_left < 7).length, 'less than 7 days left at your 30-day usage', 'neg')}
+      ${card('Paid above market', over.length, 'materials where your average is &gt;5% over Amarr now')}</div>
+    <div class="help"><b>Avg paid</b> = weighted average of all your stored purchases. <b>vs Amarr</b> = how your average compares with today's
+      cheapest Amarr sell order (negative = you bought cheaper). <b>Used</b> = consumed by your jobs (calculated from the blueprint recipe).
+      <b>Days left</b> = stock ÷ what your jobs used per day over the last 30 days.</div>
+    <div class="controls">${radios('lf', [['all', 'All'], ['bought', 'Bought'], ['stock', 'In stock'], ['low', 'Running low']], lfilter)}
+      <span class="dim">${rows.length} materials</span></div>
+    ${table('ledger', [
+      {k: 'name', t: 'Material', cls: 'l name', f: r => icon(r.tid, '', r.name) + esc(r.name)},
+      {k: 'bought', t: 'Bought', f: r => r.bought ? fmt(r.bought) : dash},
+      {k: 'spent', t: 'Spent', f: r => r.spent ? fmt(r.spent) : dash},
+      {k: 'avg', t: 'Avg paid', f: r => num(r.avg, 2)},
+      {k: 'last', t: 'Last paid', f: r => num(r.last, 2)},
+      {k: 'market', t: 'Amarr now', f: r => num(r.market, 2)},
+      {k: 'vs_market', t: 'vs Amarr', f: r => r.vs_market === null ? dash : `<span class="${r.vs_market > 0.05 ? 'neg' : r.vs_market < -0.05 ? 'pos' : 'dim'}">${r.vs_market > 0 ? '+' : ''}${pct(r.vs_market)}</span>`},
+      {k: 'used', t: 'Used (all)', f: r => r.used ? fmt(r.used) : dash},
+      {k: 'used30', t: 'Used 30d', f: r => r.used30 ? fmt(r.used30) : dash},
+      {k: 'stock', t: 'In stock', f: r => r.stock ? fmt(r.stock) : dash},
+      {k: 'stock_value', t: 'Stock value', f: r => r.stock_value ? fmt(r.stock_value) : dash},
+      {k: 'days_left', t: 'Days left', f: r => r.days_left === null ? dash : `<span class="${r.days_left < 7 ? 'neg' : ''}">${r.days_left.toFixed(1)}</span>`},
+      {k: 'src', t: 'Cost from', cls: 'l', f: r => `<span class="tag ${r.src === 'paid' ? 'own' : ''}">${r.src}</span>`},
+    ], rows, 'spent')}`;
+  el.querySelectorAll('input[name=lf]').forEach(r => r.onchange = () => { lfilter = r.value; renderLedger(); });
+  bindTable(el, 'ledger', rows, renderLedger);
+}
+
+// ---- Jobs
+let jfilter = 'open', jopen = new Set();
+function renderJobs() {
+  const el = document.getElementById('jobsView');
+  if (!TRACK) return needLogin(el, 'Job tracking');
+  if (!TRACK.have_industry && !TRACK.jobs.length) return needLogin(el, 'Job tracking (industry jobs)');
+  const all = TRACK.jobs;
+  const open = all.filter(j => j.status === 'active' || j.status === 'ready' || j.status === 'paused');
+  const rows = all.filter(j => jfilter === 'all' || (jfilter === 'open' ? open.includes(j) : j.act === jfilter))
+    .map(j => ({...j, sortstate: j.status === 'ready' ? 0 : j.status === 'active' ? 1 : 2}));
+  const fees30 = all.filter(j => j.age <= 30).reduce((a, j) => a + j.fee, 0);
+  const inv = all.filter(j => j.act === 'Invention' && j.success !== null && j.success !== undefined);
+  const invRate = inv.length ? inv.reduce((a, j) => a + j.success, 0) / inv.reduce((a, j) => a + j.runs, 0) : null;
+  el.innerHTML = `<div class="cards">
+      ${card('Running', all.filter(j => j.status === 'active').length, 'jobs in progress')}
+      ${card('Ready to deliver', all.filter(j => j.status === 'ready').length, 'finished, waiting in the industry window', all.some(j => j.status === 'ready') ? 'pos' : '')}
+      ${card('Job fees (30d)', fmt(fees30) + ' ISK', 'install costs paid')}
+      ${card('Your invention rate', invRate === null ? '–' : pct(invRate), inv.reduce((a, j) => a + j.runs, 0) + ' attempts stored')}</div>
+    <div class="help">Click a manufacturing job for its material breakdown. <b>Cost/unit</b> uses your average purchase prices
+      (<span class="tag own">paid</span>) or market prices for materials you never bought (<span class="tag">market</span> / <span class="tag">mixed</span>).</div>
+    <div class="controls">${radios('jf', [['open', 'Running + ready'], ['all', 'All'], ['Manufacturing', 'Manufacturing'], ['Invention', 'Invention'], ['Copying', 'Copying']], jfilter)}
+      <span class="dim">${rows.length} jobs</span></div>
+    ${table('jobs', [
+      {k: 'sortstate', t: 'Status', cls: 'l', f: j => `<span class="tag ${j.status === 'ready' ? 'own' : j.status === 'active' ? 'warn' : ''}">${j.status}</span>`},
+      {k: 'act', t: 'Activity', cls: 'l', f: j => `<span class="dim">${j.act}</span>`},
+      {k: 'product_name', t: 'Product', cls: 'l name', f: j => j.product ? icon(j.product, 's', j.product_name) + esc(j.product_name) : esc(j.bp_name)},
+      {k: 'runs', t: 'Runs', f: j => fmt(j.runs) + (j.success !== null && j.success !== undefined ? ` <span class="dim">(${j.success} ok)</span>` : '')},
+      {k: 'units', t: 'Units', f: j => num(j.units)},
+      {k: 'left_h', t: 'Time left', f: j => j.status === 'active' ? (j.left_h >= 24 ? (j.left_h / 24).toFixed(1) + 'd' : j.left_h.toFixed(1) + 'h') : dash},
+      {k: 'fee', t: 'Job fee', f: j => fmt(j.fee)},
+      {k: 'total', t: 'Total cost', f: j => num(j.total)},
+      {k: 'cpu', t: 'Cost/unit', f: j => j.cpu === undefined ? dash : fmt(j.cpu, 2) + ` <span class="tag ${j.basis === 'paid' ? 'own' : ''}">${j.basis}</span>`},
+      {k: 'value', t: 'Output value', f: j => num(j.value)},
+      {k: 'age', t: 'Started', cls: 'l', f: j => `<span class="dim" title="${j.start}">${ago(j.age)}</span>`},
+    ], rows, 'sortstate', j => jopen.has(j.id) && j.mats ? `<tr class="detail"><td colspan="11"><div class="dgrid">
+      <div><h4>Materials consumed (ME ${j.me})</h4><table>${j.mats.map(m => `<tr><td>${icon(m.tid, 's', m.name)}${esc(m.name)}</td>
+        <td>${fmt(m.qty)}</td><td>× ${fmt(m.unit, 2)}</td><td>${fmt(m.qty * m.unit)}</td><td><span class="tag ${m.src === 'paid' ? 'own' : ''}">${m.src}</span></td></tr>`).join('')}</table></div>
+      <div><h4>Job cost</h4><table>
+        <tr><td>Materials</td><td>${fmt(j.mat_cost)}</td></tr><tr><td>Job fee</td><td>${fmt(j.fee)}</td></tr>
+        ${j.inv_cost ? `<tr><td>Invention share (${j.inv_src})</td><td>${fmt(j.inv_cost)}</td></tr>` : ''}
+        <tr><td><b>Total</b></td><td><b>${fmt(j.total)}</b></td></tr><tr><td>Per unit</td><td>${fmt(j.cpu, 2)}</td></tr>
+        <tr><td>Output value (Amarr now)</td><td>${fmt(j.value)}</td></tr></table></div></div></td></tr>` : '', 1)}`;
+  el.querySelectorAll('input[name=jf]').forEach(r => r.onchange = () => { jfilter = r.value; renderJobs(); });
+  bindTable(el, 'jobs', rows, renderJobs, j => { jopen.has(j.id) ? jopen.delete(j.id) : jopen.add(j.id); renderJobs(); });
+}
+
+// ---- Wallet
+let wdays = 30;
+const REF = {
+  market_transaction: 'Market transactions (sales + instant buys)', market_escrow: 'Purchases via buy orders', brokers_fee: 'Broker fees',
+  transaction_tax: 'Sales tax', industry_job_tax: 'Industry job tax', manufacturing: 'Industry job fees',
+  player_donation: 'Donations', bounty_prizes: 'Bounties', agent_mission_reward: 'Mission rewards',
+  agent_mission_time_bonus_reward: 'Mission bonuses', insurance: 'Insurance', contract_price: 'Contracts',
+  planetary_import_tax: 'PI import tax', planetary_export_tax: 'PI export tax', reprocessing_tax: 'Reprocessing tax',
+  jump_clone_installation_fee: 'Jump clone fees', skill_purchase: 'Skill books', ess_escrow_transfer: 'ESS payouts',
+};
+function renderWallet() {
+  const el = document.getElementById('walletView');
+  if (!TRACK) return needLogin(el, 'Wallet tracking');
+  const j = TRACK.journal.filter(x => inPeriod(x.age, wdays));
+  const by = {};
+  j.forEach(x => {
+    const r = by[x.type] ||= {type: x.type, label: REF[x.type] || x.type.replace(/_/g, ' '), income: 0, expense: 0, n: 0};
+    x.amount >= 0 ? r.income += x.amount : r.expense += x.amount; r.n++;
+  });
+  const rows = Object.values(by).map(r => ({...r, net: r.income + r.expense}));
+  const inc = rows.reduce((a, r) => a + r.income, 0), exp = rows.reduce((a, r) => a + r.expense, 0);
+  const fees = rows.filter(r => ['brokers_fee', 'transaction_tax', 'industry_job_tax', 'manufacturing'].includes(r.type)).reduce((a, r) => a + r.net, 0);
+  // daily net for a simple bar strip
+  const days = {};
+  j.forEach(x => { const d = new Date(Date.now() - x.age * 864e5).toISOString().slice(0, 10); days[d] = (days[d] || 0) + x.amount; });
+  const dl = Object.entries(days).sort(), mx = Math.max(1, ...dl.map(([, v]) => Math.abs(v)));
+  el.innerHTML = `<div class="cards">
+      ${card('Wallet balance', TRACK.balance === null ? '–' : fmt(TRACK.balance) + ' ISK', 'right now')}
+      ${card('Money in', fmt(inc) + ' ISK', rows.length + ' kinds of transactions', 'pos')}
+      ${card('Money out', fmt(-exp) + ' ISK', 'incl. ' + fmt(-fees) + ' in fees &amp; taxes', 'neg')}
+      ${card('Net cash flow', fmt(inc + exp) + ' ISK', 'history since ' + (TRACK.journal_since || '–'), sign(inc + exp))}</div>
+    <div class="controls">${radios('wd', PERIODS, wdays)}</div>
+    ${dl.length > 1 ? `<div class="wrap"><div class="days">${dl.map(([d, v]) =>
+      `<div class="day" title="${d}: ${fmt(v)} ISK"><div class="${v >= 0 ? 'up' : 'down'}" style="height:${Math.max(2, 60 * Math.abs(v) / mx)}px"></div></div>`).join('')}</div>
+      <div class="dim" style="font-size:11px;margin:4px 0 10px">daily net cash flow, ${dl[0][0]} → ${dl[dl.length - 1][0]} (hover for values)</div></div>` : ''}
+    ${table('wallet', [
+      {k: 'label', t: 'Category', cls: 'l', f: r => esc(r.label)},
+      {k: 'n', t: 'Entries', f: r => fmt(r.n)},
+      {k: 'income', t: 'In', f: r => r.income ? `<span class="pos">${fmt(r.income)}</span>` : dash},
+      {k: 'expense', t: 'Out', f: r => r.expense ? `<span class="neg">${fmt(r.expense)}</span>` : dash},
+      {k: 'net', t: 'Net', f: r => signed(r.net)},
+    ], rows, 'net')}`;
+  el.querySelectorAll('input[name=wd]').forEach(r => r.onchange = () => { wdays = +r.value; renderWallet(); });
+  bindTable(el, 'wallet', rows, renderWallet);
+}
+
+// ---------------------------------------------------------------- update button
+// Works both when served by server.py (http://localhost:8766) and when the file is
+// opened straight from disk: then it talks to the local server directly, and if that
+// isn't running, starts it through the everoi:// link (install_link.py).
+const SERVED = location.protocol.startsWith('http');
+const API = SERVED ? '' : 'http://localhost:8766';
+let sawRunning = false, launching = false;
+function minutesAgo() {
+  const t = new Date(META.generated.replace(' ', 'T'));
+  const m = Math.round((Date.now() - t) / 60000);
+  return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' days ago';
+}
+function renderUpdate(st, msg) {
+  const el = document.getElementById('upd');
+  if (st && st.running || launching) {
+    const line = msg || (st && st.log[st.log.length - 1]) || 'starting…';
+    el.innerHTML = `<span class="log" title="${esc(st ? st.log.join('\n') : '')}">${esc(line)}</span>
+      <button disabled><span class="spin"></span>Updating…</button>`;
+    return;
+  }
+  const needLogin = st && st.log.some(l => /login\.bat/.test(l));
+  el.innerHTML = (msg ? `<span class="log neg">${esc(msg)}</span>` : '') +
+    (st && st.ok === false ? `<span class="log neg" title="${esc(st.log.join('\n'))}">Update failed: ${esc(st.log[st.log.length - 1] || '')}</span>` : '') +
+    `<span>Prices &amp; character from ${minutesAgo()}</span>` +
+    (needLogin ? `<button class="sec" id="relog">Log in again</button>` : '') +
+    `<button id="upbtn">⟳ Update</button>`;
+  document.getElementById('upbtn').onclick = () => startUpdate(false);
+  if (needLogin) document.getElementById('relog').onclick = () => startUpdate(true);
+}
+async function status() {
+  const r = await fetch(API + '/status', {cache: 'no-store'});
+  return r.json();
+}
+function reloadSameTab() {
+  try { localStorage.setItem('eve-roi-cat', cat); } catch (e) {}
+  history.replaceState(null, '', location.pathname);  // keep the current tab, not the old #hash
+  location.reload();
+}
+async function pollStatus() {
+  try {
+    const st = await status();
+    launching = false;
+    if (st.running) { sawRunning = true; renderUpdate(st); setTimeout(pollStatus, 1200); return; }
+    if (sawRunning && st.ok) return reloadSameTab();
+    renderUpdate(st);
+  } catch (e) { renderUpdate(null); }
+}
+async function startUpdate(login) {
+  try {
+    const r = await fetch(API + '/update' + (login ? '?login=1' : ''), {method: 'POST', headers: {'X-Eve-Update': '1'}});
+    if (r.ok || r.status === 409) { sawRunning = true; return pollStatus(); }
+  } catch (e) { /* server not running */ }
+  // start the local server (it runs the update on start), then wait for it to come up
+  launching = true; sawRunning = true;
+  renderUpdate(null, 'starting the updater…');
+  location.href = 'everoi://update';
+  const t0 = Date.now();
+  (async function wait() {
+    try { await status(); return pollStatus(); } catch (e) {}
+    if (Date.now() - t0 > 30000) {
+      launching = false; sawRunning = false;
+      return renderUpdate(null, 'Could not start the updater - allow the "EVE Industry ROI" prompt, or start run.bat');
+    }
+    setTimeout(wait, 1000);
+  })();
+}
+pollStatus();
+setInterval(() => { if (!sawRunning) pollStatus(); }, 60000);
+
+['minroi', 'maxst', 'maxsup', 'minvol'].forEach(id => {
+  const el = document.getElementById(id);
+  el.value = LIM[id] ?? '';
+  el.addEventListener('input', () => {
+    LIM[id] = el.value;
+    try { localStorage.setItem('eve-roi-limits', JSON.stringify(LIM)); } catch (e) {}
+    render(); renderCards();
+  });
+});
+document.getElementById('resetlim').onclick = () => {
+  ['minroi', 'maxst', 'maxsup', 'minvol'].forEach(id => { LIM[id] = ''; document.getElementById(id).value = ''; });
+  try { localStorage.setItem('eve-roi-limits', JSON.stringify(LIM)); } catch (e) {}
+  render(); renderCards();
+};
+[['sort1', false], ['sort2', true]].forEach(([id, second]) => document.getElementById(id).addEventListener('change', e => {
+  const [k, d] = e.target.value ? e.target.value.split(':') : [null, -1];
+  if (second) { sortKey2 = k && k !== sortKey ? k : null; sortDir2 = +d; }
+  else { sortKey = k; sortDir = +d; if (sortKey2 === k) sortKey2 = null; }
+  saveSort(); render();
+}));
+
+syncLiquid(); renderMeta(); renderTabs(); renderGroups(); renderCards(); render(); renderView();
+</script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+{
+  "_comment": "Edit these to match your character / setup. Percent values are fractions (0.036 = 3.6%).",
+
+  "esi_client_id": "",
+  "esi_callback": "http://localhost:8765/callback",
+  "_esi_comment": "Client ID of your app from developers.eveonline.com. When set and you've run login.bat, your real skills, standings and BPOs replace the skills/sales_tax/broker_fee/bpo_me values below.",
+
+  "market_region_id": 10000043,
+  "market_station_id": 60008494,
+  "market_region_name": "Domain",
+  "_market_comment": "Domain region / Amarr VIII (Oris) - Emperor Family Academy",
+
+  "industry_system": "Amarr",
+  "_industry_comment": "System where you run invention + manufacturing (used for the job cost index)",
+
+  "categories": ["missiles", "laser_crystals", "mining_crystals", "other_ammo", "modules", "rigs", "components", "mining", "drones", "ships", "mineral_builds"],
+  "_categories_comment": "Tabs in the report, each with T1 (built from NPC-sold BPOs) and T2 (invented) items: missiles, laser_crystals, mining_crystals, components (capital / advanced capital / T2 construction / T3 / structure components), mining (compressors, industrial cores, mining lasers, strip miners, harvesters, upgrades, survey gear), drones, ships, rigs (T1 rigs from salvage + invented T2 rigs), mineral_builds (other T1 items needing only minerals). modules (T1+T2 modules), other_ammo (hybrid/projectile ammo + other charges, T1+T2). Also available: fuel (fuel blocks)",
+
+  "skills": {
+    "science": 4,
+    "encryption": 4,
+    "_comment": "science = level of each of the 2 science skills required by the blueprint, encryption = racial encryption methods. Override per skill name below if they differ.",
+    "overrides": {
+      "Rocket Science": 4,
+      "Laser Physics": 4,
+      "High Energy Physics": 4
+    }
+  },
+
+  "bpo_me": 10,
+  "bpo_runs": 10,
+  "bpo_te": 20,
+  "structure_te_bonus": 0.0,
+  "_bpo_comment": "For items built from your own BPO (capital components): researched ME level and how many runs one job/batch is",
+
+  "decryptor": "none",
+  "_decryptor_comment": "'none', 'best' (pick highest profit per invention attempt per item) or a decryptor name like 'Accelerant Decryptor'",
+
+  "material_price_mode": "sell",
+  "_material_price_comment": "'sell' = you buy instantly from sell orders, 'buy' = you place buy orders (cheaper, slower)",
+  "product_price_mode": "sell",
+  "_product_price_comment": "'sell' = you list sell orders (pays broker fee), 'buy' = you dump into buy orders instantly",
+
+  "sales_tax": 0.045,
+  "broker_fee": 0.015,
+  "_fees_comment": "Sales tax: 7.5% base, -11% per Accounting level (IV=4.2%, V=3.375%). Broker fee in NPC station: 3% - 0.3%/Broker Relations level - standings bonus.",
+
+  "facility_tax": 0.0025,
+  "scc_surcharge": 0.04,
+  "structure_me_bonus": 0.0,
+  "structure_job_cost_bonus": 0.0,
+  "_structure_comment": "NPC station defaults. Raitaru/Azbel with ME rig: set structure_me_bonus e.g. 0.02 (T1 rig hisec) / 0.024 (T2 rig).",
+
+  "relist_patience_days": 2,
+  "_relist_comment": "My Orders: if the market will sell everything ahead of you plus your order within this many days anyway, the advice is to wait instead of paying the relist fee",
+
+  "history_days": 30,
+  "max_sell_through_days": 14,
+  "_liquidity_comment": "Items whose invented BPC output takes longer than this many days of the regional daily volume to sell are flagged as illiquid"
+}
