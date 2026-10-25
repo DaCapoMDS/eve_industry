@@ -36,6 +36,13 @@ ACTIVITIES = {1: "Manufacturing", 3: "TE research", 4: "ME research", 5: "Copyin
 NOW = dt.datetime.now(dt.timezone.utc)
 
 
+def _job_hours(j):
+    """How long the job really ran (ESI duration, start to end)."""
+    if j.get("duration"):
+        return j["duration"] / 3600
+    return (_ts(j["end_date"]) - _ts(j["start_date"])).total_seconds() / 3600
+
+
 def _ts(s):
     return dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
 
@@ -183,6 +190,104 @@ def _undercut_advice(o, c, fix, status, relist_rate, patience, buy):
             "relist_fee": relist_fee, "price_drop": price_drop, "advice": advice}
 
 
+def _self_built(tid, produced, ctx):
+    """For inputs you make yourself: units coming out of running jobs and what one unit costs you."""
+    p = produced.get(tid)
+    if not p:
+        return {"building": 0, "you_build": False}
+    cpu = p["cost"] / p["units"] if p["units"] else ctx["est_cpu"].get(tid)
+    return {"building": p["active_units"], "you_build": True, "build_cpu": cpu, "build_cpu_real": bool(p["units"])}
+
+
+def _planets(char, journal, ctx, nm):
+    """Your PI colonies: what each one extracts, makes, imports and exports per day, and the
+    customs tax you really paid there (wallet journal, per planet)."""
+    colonies = char.get("planets")
+    if colonies is None:
+        return None
+    sch = {x["id"]: x for x in ctx.get("pi", [])}
+    tier = {}
+    for x in ctx.get("pi", []):
+        tier[x["out"]] = x["tier"]
+        for t, _, tr in x["in"]:
+            tier[t] = tr
+    taxes = {}
+    for e in journal:
+        if e.get("context_id_type") == "planet_id" and e["ref_type"] in ("planetary_import_tax", "planetary_export_tax", "planetary_construction"):
+            t = taxes.setdefault(e["context_id"], {"import": 0.0, "export": 0.0, "construction": 0.0, "export30": 0.0, "import30": 0.0, "last": ""})
+            kind = {"planetary_import_tax": "import", "planetary_export_tax": "export", "planetary_construction": "construction"}[e["ref_type"]]
+            t[kind] -= e["amount"]
+            if kind != "construction" and _age_days(e["date"]) <= 30:
+                t[kind + "30"] -= e["amount"]
+            t["last"] = max(t["last"], e["date"])
+    out = []
+    for c in colonies:
+        pins = c.get("pins", [])
+        prod, extractors, factories, storage = {}, [], {}, {}
+        for pin in pins:
+            kind = nm(pin["type_id"])
+            ex = pin.get("extractor_details")
+            if ex and ex.get("product_type_id"):
+                exp = pin.get("expiry_time")
+                hours_left = (_ts(exp) - NOW).total_seconds() / 3600 if exp else None
+                per_day = (ex.get("qty_per_cycle") or 0) * 86400 / ex["cycle_time"] if ex.get("cycle_time") else 0
+                running = hours_left is not None and hours_left > 0
+                if running:
+                    prod[ex["product_type_id"]] = prod.get(ex["product_type_id"], 0) + per_day
+                extractors.append({"tid": ex["product_type_id"], "name": nm(ex["product_type_id"]), "per_day": per_day,
+                                   "heads": len(ex.get("heads") or []), "hours_left": hours_left})
+            sid = pin.get("schematic_id") or (pin.get("factory_details") or {}).get("schematic_id")
+            if sid and sid in sch:
+                factories[sid] = factories.get(sid, 0) + 1
+            if "Launchpad" in kind or "Storage" in kind or "Command Center" in kind:
+                for it in pin.get("contents") or []:
+                    storage[it["type_id"]] = storage.get(it["type_id"], 0) + it["amount"]
+        # run the factories, lowest tier first: inputs made on the planet limit them, the rest is imported
+        avail, imports, made = dict(prod), {}, []
+        for sid in sorted(factories, key=lambda i: sch[i]["tier"]):
+            x, n = sch[sid], factories[sid]
+            per = 86400 / x["cycle"] * n
+            scale = 1.0
+            for t, q, _ in x["in"]:
+                if t in avail:
+                    scale = min(scale, avail[t] / (q * per)) if q * per else scale
+            for t, q, _ in x["in"]:
+                need = q * per * scale
+                if t in avail:
+                    avail[t] -= need
+                else:
+                    imports[t] = imports.get(t, 0) + q * per  # bought in, factory kept supplied
+            outq = x["q"] * per * (scale if any(t in prod or t in avail for t, _, _ in x["in"]) else 1.0)
+            avail[x["out"]] = avail.get(x["out"], 0) + outq
+            made.append({"tid": x["out"], "name": nm(x["out"]), "count": n, "per_day": outq, "cap_per_day": x["q"] * per,
+                         "tier": x["tier"]})
+        # P1+ left over gets exported; raw P0 the factories can't use just piles up (not exported)
+        exports = [{"tid": t, "name": nm(t), "per_day": q, "tier": tier.get(t, 0)} for t, q in avail.items() if q > 0.5 and tier.get(t, 0) >= 1]
+        unused = [{"tid": t, "name": nm(t), "per_day": q} for t, q in avail.items() if q > 0.5 and tier.get(t, 0) == 0]
+        t = taxes.get(c["planet_id"], {})
+        out.append({
+            "id": c["planet_id"], "name": c.get("name"), "type": c.get("planet_type"), "system": nm(c.get("solar_system_id")),
+            "level": c.get("upgrade_level"), "pins": len(pins), "last_update": c.get("last_update"),
+            "extractors": extractors, "factories": made,
+            "exports": sorted(exports, key=lambda e: -e["per_day"]),
+            "unused": unused,
+            "imports": [{"tid": k, "name": nm(k), "per_day": v, "tier": tier.get(k, 0)} for k, v in imports.items()],
+            "storage": [{"tid": k, "name": nm(k), "qty": v, "tier": tier.get(k, 0)} for k, v in storage.items()],
+            "tax": t,
+        })
+    return out
+
+
+def _build_locations(jobs, nm):
+    """Where you run your jobs, most used first (to preselect 'Stock at')."""
+    count = {}
+    for j in jobs:
+        loc = j.get("facility_id") or j.get("station_id")
+        if loc:
+            count[nm(loc)] = count.get(nm(loc), 0) + 1
+    return [n for n, _ in sorted(count.items(), key=lambda x: -x[1])]
+
+
 def _real_pnl(char, journal, txs, produced, real_cpu, paid, nm):
     """Profit from your own records only: sales, the sales tax and broker fees you actually
     paid (matched from the wallet journal), and what the sold items really cost you."""
@@ -195,6 +300,8 @@ def _real_pnl(char, journal, txs, produced, real_cpu, paid, nm):
     by_time = {}
     for e in events:
         by_time.setdefault(e["issued"], []).append(e)
+
+    listed, instant = _listed_spans(char, events, txs)
 
     # sales tax: booked the same second as its sale, as the neighbouring journal entry
     sale_entry = {e["context_id"]: e for e in journal if e["ref_type"] == "market_transaction"}
@@ -233,10 +340,69 @@ def _real_pnl(char, journal, txs, produced, real_cpu, paid, nm):
         if tid in real_cpu and p:
             cov = p["paid"] / p["mat"] if p["mat"] else 1.0
             cost[str(tid)] = {"cpu": real_cpu[tid], "src": "built", "coverage": cov, "inv_est": p["inv_est"],
-                              "jobs": p["jobs"], "real": cov >= 0.995 and not p["inv_est"]}
+                              "jobs": p["jobs"], "real": cov >= 0.995 and not p["inv_est"],
+                              # real slot time per unit from your finished jobs (lab: your invention jobs per success)
+                              "mfg_h_u": p["mfg_h"] / p["units"],
+                              "lab_h_u": None if p["lab_est"] else p["lab_h"] / p["units"]}
         elif paid.get(tid, {}).get("q"):
             cost[str(tid)] = {"cpu": paid[tid]["isk"] / paid[tid]["q"], "src": "bought", "coverage": 1.0, "real": True}
-    return {"fees": fees, "cost": cost, "tax_by_tx": tax_by_tx}
+    return {"fees": fees, "cost": cost, "tax_by_tx": tax_by_tx, "listed": listed, "instant": instant}
+
+
+def _listed_spans(char, events, txs):
+    """When each item really had a sell order up: per type, merged [from, to] in days ago.
+    Start = first time we saw the order placed; end = now (open), its last sale (sold out / cancelled)
+    or its expiry. Orders are kept locally so the history grows past ESI's 90 days."""
+    open_ids = {o["order_id"] for o in char.get("orders") or []}
+    rows = []
+    for o in (char.get("orders") or []) + (char.get("orders_history") or []):
+        if o.get("is_buy_order"):
+            continue
+        rows.append({"order_id": o["order_id"], "type_id": o["type_id"], "loc": o["location_id"], "issued": o["issued"],
+                     "duration": o.get("duration", 90), "remain": o.get("volume_remain", 0),
+                     "state": "open" if o["order_id"] in open_ids else o.get("state", "closed")})
+    orders = _store("sell_orders.json", rows, "order_id")
+    first = {}
+    for e in events:
+        if not e["buy"]:
+            first[e["order_id"]] = min(first.get(e["order_id"], e["issued"]), e["issued"])
+    sales = {}
+    for t in txs:
+        if not t["is_buy"]:
+            sales.setdefault((t["type_id"], t["location_id"]), []).append(_ts(t["date"]))
+    # a sale within 2 minutes of placing/changing a sell order of that item = dumped into a buy order, not sold off the shelf
+    touched = {}
+    for e in events:
+        if not e["buy"]:
+            touched.setdefault(e["type_id"], []).append(_ts(e["issued"]))
+    instant = [t["transaction_id"] for t in txs if not t["is_buy"] and any(
+        0 <= (_ts(t["date"]) - x).total_seconds() <= 120 for x in touched.get(t["type_id"], []))]
+    spans = {}
+    for o in orders:
+        start = _ts(min(first.get(o["order_id"], o["issued"]), o["issued"]))
+        expiry = start + dt.timedelta(days=o["duration"])
+        if o["state"] == "open" and o["order_id"] in open_ids:
+            end = NOW
+        else:
+            sold = [d for d in sales.get((o["type_id"], o["loc"]), []) if start <= d <= expiry]
+            last_mod = _ts(o["issued"])
+            if o["state"] == "expired" and o["remain"]:
+                end = min(expiry, NOW)
+            else:  # sold out or cancelled: the last sale (or change) we know of
+                end = max([last_mod] + sold)
+        if end > start:
+            spans.setdefault(o["type_id"], []).append((start, min(end, NOW)))
+    out = {}
+    for tid, xs in spans.items():
+        xs.sort()
+        merged = [list(xs[0])]
+        for a, b in xs[1:]:
+            if a <= merged[-1][1]:
+                merged[-1][1] = max(merged[-1][1], b)
+            else:
+                merged.append([a, b])
+        out[str(tid)] = [[round((NOW - a).total_seconds() / 86400, 3), round((NOW - b).total_seconds() / 86400, 3)] for a, b in merged]
+    return out, instant
 
 
 # ---------------------------------------------------------------------------- main
@@ -273,11 +439,25 @@ def build(char, cfg, ctx):
     # (your own ships, fitted modules, drones in a drone bay) aren't stock for sale.
     fitted = ("HiSlot", "MedSlot", "LoSlot", "RigSlot", "SubSystemSlot", "ServiceSlot", "DroneBay",
               "FighterBay", "FighterTube", "Implant", "Skill", "Booster")
-    stock = {}
-    for a in char.get("assets") or []:
+    stock, stock_at = {}, {}
+    assets = char.get("assets") or []
+    by_item = {a["item_id"]: a for a in assets}
+
+    def root_location(a):
+        """The station / structure an item is in, through any containers or ships."""
+        loc, seen = a["location_id"], set()
+        while loc in by_item and loc not in seen:
+            seen.add(loc)
+            loc = by_item[loc]["location_id"]
+        return loc
+
+    for a in assets:
         if a.get("is_blueprint_copy") or a.get("is_singleton") or a.get("location_flag", "").startswith(fitted):
             continue
         stock[a["type_id"]] = stock.get(a["type_id"], 0) + a["quantity"]
+        where = stock_at.setdefault(a["type_id"], {})
+        loc = root_location(a)
+        where[loc] = where.get(loc, 0) + a["quantity"]
 
     # ---- material cost basis: weighted average of what you paid
     paid = {}
@@ -311,15 +491,17 @@ def build(char, cfg, ctx):
         for tid, q in recipe["m"]:
             spend += q * j["runs"] * unit_cost(tid)[0]
             consumed.append((tid, q * j["runs"], j["start_date"]))
-        s = inv_stats.setdefault(j["product_type_id"], {"attempts": 0, "success": 0, "spend": 0.0, "pending": 0})
+        s = inv_stats.setdefault(j["product_type_id"], {"attempts": 0, "success": 0, "spend": 0.0, "pending": 0, "hours": 0.0})
         if j["status"] == "delivered" or j.get("successful_runs") is not None and j["status"] != "active":
             s["attempts"] += j["runs"]
             s["success"] += j.get("successful_runs") or 0
             s["spend"] += spend
+            s["hours"] += _job_hours(j)
         else:
             s["pending"] += j["runs"]
     for s in inv_stats.values():
         s["per_bpc"] = s["spend"] / s["success"] if s["success"] else None
+        s["lab_h_bpc"] = s["hours"] / s["success"] if s["success"] else None  # lab time per successful BPC
         s["rate"] = s["success"] / s["attempts"] if s["attempts"] else None
 
     # ---- every job, costed
@@ -334,10 +516,13 @@ def build(char, cfg, ctx):
             "left_h": max(0.0, (_ts(j["end_date"]) - NOW).total_seconds() / 3600),
             "age": _age_days(j["start_date"]), "success": j.get("successful_runs"),
         }
-        if act == 1 and j["status"] != "cancelled" and j["blueprint_type_id"] in bp_mfg:
+        if act in (1, 9, 11) and j["status"] != "cancelled" and j["blueprint_type_id"] in bp_mfg:
             recipe = bp_mfg[j["blueprint_type_id"]]
             bp = blueprints.get(j["blueprint_id"])
-            me = bp["material_efficiency"] if bp else (2 if j["blueprint_type_id"] in t2_bps else cfg.get("bpo_me", 10))
+            if recipe.get("r"):
+                me = 0  # reactions have no material efficiency
+            else:
+                me = bp["material_efficiency"] if bp else (2 if j["blueprint_type_id"] in t2_bps else cfg.get("bpo_me", 10))
             mats, mat_cost, paid_cost, sources = [], 0.0, 0.0, set()
             for tid, base in recipe["m"]:
                 q = _mat_qty(base, j["runs"], me, struct)
@@ -348,19 +533,21 @@ def build(char, cfg, ctx):
                 if src == "paid":
                     paid_cost += q * c
                 consumed.append((tid, q, j["start_date"]))
-            inv_cost, inv_src = 0.0, None
+            inv_cost, inv_src, lab_h = 0.0, None, 0.0
             if j["blueprint_type_id"] in t2_bps:
                 bpc_runs = ctx["bpc_runs"].get(j["blueprint_type_id"], 10)
                 real = inv_stats.get(j["blueprint_type_id"], {}).get("per_bpc")
                 per_bpc, inv_src = (real, "yours") if real else (ctx["est_inv"].get(j["blueprint_type_id"]), "estimate")
                 inv_cost = (per_bpc or 0.0) * j["runs"] / bpc_runs
+                lab_bpc = inv_stats.get(j["blueprint_type_id"], {}).get("lab_h_bpc") if real else None
+                lab_h = lab_bpc * j["runs"] / bpc_runs if lab_bpc else None
             units = j["runs"] * recipe["q"]
             total = mat_cost + job_fee(j) + inv_cost
             row.update(units=units, me=me, mats=mats, mat_cost=mat_cost, inv_cost=inv_cost, inv_src=inv_src,
                        total=total, cpu=total / units, value=units * (market.get(product) or 0),
                        basis="paid" if sources == {"paid"} else "mixed" if "paid" in sources else "market")
             p = produced.setdefault(product, {"units": 0, "cost": 0.0, "jobs": 0, "active_units": 0,
-                                              "mat": 0.0, "paid": 0.0, "inv_est": False})
+                                              "mat": 0.0, "paid": 0.0, "inv_est": False, "mfg_h": 0.0, "lab_h": 0.0, "lab_est": False})
             p["jobs"] += 1
             if j["status"] in ("delivered", "ready"):
                 p["units"] += units
@@ -368,6 +555,11 @@ def build(char, cfg, ctx):
                 p["mat"] += mat_cost
                 p["paid"] += paid_cost
                 p["inv_est"] = p["inv_est"] or inv_src == "estimate"
+                p["mfg_h"] += _job_hours(j)
+                if lab_h is None:
+                    p["lab_est"] = True
+                else:
+                    p["lab_h"] += lab_h
             else:
                 p["active_units"] += units
         elif act == 8:
@@ -375,12 +567,38 @@ def build(char, cfg, ctx):
             row.update(rate=s.get("rate"), per_bpc=s.get("per_bpc"))
         out_jobs.append(row)
 
+    busy = {j["blueprint_id"]: ACTIVITIES.get(j["activity_id"], "job") for j in jobs
+            if j["status"] in ("active", "ready", "paused") and j.get("blueprint_id")}
+    bp_list = []
+    for b in char.get("blueprints") or []:
+        parent = by_item.get(b["location_id"])
+        rec = bp_mfg.get(b["type_id"])
+        inv = bp_inv.get(b["type_id"])
+        bp_list.append({"id": b["item_id"], "tid": b["type_id"], "bpo": b["quantity"] != -2,
+                        "runs": b.get("runs", -1), "me": b.get("material_efficiency", 0), "te": b.get("time_efficiency", 0),
+                        "loc": root_location(b) if parent else b["location_id"],
+                        "cont": parent["type_id"] if parent and parent.get("type_id") else None,
+                        "cont_id": parent["item_id"] if parent else None,
+                        "cont_label": (char.get("asset_names") or {}).get(parent["item_id"]) if parent else None,
+                        "job": busy.get(b["item_id"]),
+                        "product": rec["p"] if rec else None, "per_run": rec["q"] if rec else 1,
+                        "invents": sorted(inv["p"]) if inv else []})
     ids = {o["type_id"] for o in char["orders"]} | {o["location_id"] for o in char["orders"]} \
         | {t["type_id"] for t in txs} | {t["location_id"] for t in txs} \
         | {j["bp"] for j in out_jobs} | {j["product"] for j in out_jobs if j["product"]} \
-        | {tid for tid, _, _ in consumed} | set(stock)
+        | {tid for tid, _, _ in consumed} | set(stock) | {loc for w in stock_at.values() for loc in w}         | {j[k] for j in jobs for k in ("facility_id", "station_id") if j.get(k)} \
+        | {c["solar_system_id"] for c in char.get("planets") or []} \
+        | {p["type_id"] for c in char.get("planets") or [] for p in c.get("pins", [])} \
+        | {p["extractor_details"]["product_type_id"] for c in char.get("planets") or [] for p in c.get("pins", [])
+           if (p.get("extractor_details") or {}).get("product_type_id")} \
+        | {it["type_id"] for c in char.get("planets") or [] for p in c.get("pins", []) for it in p.get("contents") or []}
+    ids |= {b["tid"] for b in bp_list} | {b["loc"] for b in bp_list} | {b["cont"] for b in bp_list if b["cont"]} \
+        | {b["product"] for b in bp_list if b["product"]}
     names = _resolve_names(ids, ctx["names"], client_id, char.get("can_read_structures"))
     nm = lambda i: names.get(i, str(i))
+    for b in bp_list:
+        b.update(name=nm(b["tid"]), loc_name=nm(b["loc"]), cont_name=nm(b["cont"]) if b["cont"] else None,
+                 product_name=nm(b["product"]) if b["product"] else None)
     for j in out_jobs:
         j["bp_name"], j["product_name"] = nm(j["bp"]), nm(j["product"]) if j["product"] else ""
         for m in j.get("mats", []):
@@ -460,12 +678,12 @@ def build(char, cfg, ctx):
             continue
         restock.append({"tid": tid, "name": nm(tid), "used7": u["used7"], "used30": u["used30"],
                         "per_day": u["used30"] / window, "stock": stock.get(tid, 0), "on_order": on_order.get(tid, 0),
-                        "market": market.get(tid)})
+                        "market": market.get(tid), **_self_built(tid, produced, ctx)})
 
     # ---- T2 blueprints you already have: invented BPCs in your hangars + inventions still running
     bp_hold = {}
     for b in char.get("blueprints") or []:
-        if b["quantity"] == -2 and b["type_id"] in t2_bps:
+        if b["quantity"] == -2:
             h = bp_hold.setdefault(str(b["type_id"]), {"bpc": 0, "runs": 0, "inventing": 0})
             h["bpc"] += 1
             h["runs"] += max(b.get("runs", 0), 0)
@@ -502,14 +720,15 @@ def build(char, cfg, ctx):
                    for j in journal]
 
     pnl = _real_pnl(char, journal, txs, produced, real_cpu, paid, nm)
+    instant = set(pnl["instant"])
 
     out_tx = [{"date": t["date"][:16].replace("T", " "), "age": _age_days(t["date"]), "tid": t["type_id"],
                "name": nm(t["type_id"]), "buy": t["is_buy"], "qty": t["quantity"], "price": t["unit_price"],
                "total": t["quantity"] * t["unit_price"], "loc": nm(t["location_id"]),
-               "tax": pnl["tax_by_tx"].get(t["transaction_id"])} for t in txs]
+               "tax": pnl["tax_by_tx"].get(t["transaction_id"]), "inst": t["transaction_id"] in instant} for t in txs]
 
     return {
-        "pnl": {"fees": pnl["fees"], "cost": pnl["cost"]},
+        "pnl": {"fees": pnl["fees"], "cost": pnl["cost"], "listed": pnl["listed"]},
         "orders": _orders(char["orders"], names, fee, cost_for, cfg),
         "relist_patience": cfg.get("relist_patience_days", 2),
         "tx": out_tx[:3000], "tx_count": len(txs), "tx_since": txs[-1]["date"][:10] if txs else None,
@@ -517,6 +736,15 @@ def build(char, cfg, ctx):
         "balance": char.get("balance"), "jobs": out_jobs[:1500], "have_industry": have_industry,
         "production": production, "ledger": ledger, "cost_for": {str(k): v for k, v in cost_for.items()},
         "inv_stats": {str(k): v for k, v in inv_stats.items()}, "fee": fee, "holdings": holdings, "bp_hold": bp_hold,
+        "blueprints": bp_list,
+        "used30": {str(t): q for t, q in used30.items()},  # everything your jobs used up in 30 days, incl. things you build
         "mat_stock": {str(t): q for t, q in stock.items() if t in ctx.get("mat_ids", ())},
+        # stock per location (station / structure name -> qty) for materials and restock inputs
+        "stock_at": {str(t): {nm(loc): q for loc, q in where.items()} for t, where in stock_at.items()
+                     if t in ctx.get("mat_ids", ()) or t in usage},
+        "build_locations": _build_locations(jobs, nm),
+        "planets": _planets(char, journal, ctx, nm),
+        # inputs coming out of your running jobs (for the planned shopping list)
+        "mat_building": {str(t): p["active_units"] for t, p in produced.items() if p["active_units"] and t in ctx.get("mat_ids", ())},
         "restock": restock, "restock_window": window,
     }

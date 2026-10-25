@@ -8,11 +8,14 @@ transactions.json
 journal.json
 jobs.json
 order_events.json
+sell_orders.json
 
 # --- caches / generated (rebuilt automatically) ---
 sde/
 sde_cache.json
 history_cache.json
+contracts_cache.json
+lp_cache.json
 output/
 __pycache__/
 *.pyc

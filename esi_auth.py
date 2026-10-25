@@ -30,6 +30,7 @@ SCOPES = [
     "esi-universe.read_structures.v1",
     "esi-industry.read_character_jobs.v1",
     "esi-assets.read_assets.v1",
+    "esi-planets.manage_planets.v1",
 ]
 
 
@@ -138,6 +139,18 @@ def _pages(path, token, **params):
         page += 1
 
 
+def _npc_faction(corp_id):
+    """Faction of an NPC corporation, from the game data (SDE)."""
+    path = os.path.join(HERE, "sde", "npcCorporations.jsonl")
+    if os.path.exists(path):
+        with open(path, encoding="utf8") as f:
+            for line in f:
+                c = json.loads(line)
+                if c["_key"] == corp_id:
+                    return c.get("factionID")
+    return None
+
+
 def load_character(client_id, station_id):
     """Skills, standings and blueprints of the logged-in character, or None."""
     tok = get_token(client_id)
@@ -161,6 +174,22 @@ def load_character(client_id, station_id):
     if {"esi-industry.read_character_jobs.v1", "esi-assets.read_assets.v1"} <= granted:
         jobs = _get(f"/characters/{cid}/industry/jobs/", tok, include_completed="true").json()
         assets = _pages(f"/characters/{cid}/assets/", tok)
+    asset_names = {}
+    if assets:
+        # containers you named in game ("Set Name"), so blueprints can be sorted into them
+        holders = sorted({a["location_id"] for a in assets} & {a["item_id"] for a in assets if a.get("is_singleton")})
+        for i in range(0, len(holders), 1000):
+            r = requests.post(f"{ESI}/characters/{cid}/assets/names/", json=holders[i:i + 1000],
+                              headers={"Authorization": f"Bearer {tok['access_token']}"}, timeout=30)
+            if r.ok:
+                asset_names.update({x["item_id"]: x["name"] for x in r.json() if x.get("name") and x["name"] != "None"})
+    planets = None
+    if "esi-planets.manage_planets.v1" in granted:
+        planets = []
+        for c in _get(f"/characters/{cid}/planets/", tok).json():
+            detail = _get(f"/characters/{cid}/planets/{c['planet_id']}/", tok).json()
+            info = requests.get(f"{ESI}/universe/planets/{c['planet_id']}/", timeout=30).json()
+            planets.append({**c, **detail, "name": info.get("name", str(c["planet_id"]))})
     missing = [s for s in SCOPES if s not in granted]
     if missing:
         print(f"Some tracking needs new permissions ({', '.join(missing)}) - run login.bat once more.")
@@ -169,6 +198,8 @@ def load_character(client_id, station_id):
     station = requests.get(f"{ESI}/universe/stations/{station_id}/", timeout=30).json()
     corp_id = station.get("owner")
     faction_id = requests.get(f"{ESI}/corporations/{corp_id}/", timeout=30).json().get("faction_id") if corp_id else None
+    if corp_id and not faction_id:
+        faction_id = _npc_faction(corp_id)  # ESI leaves the faction out for NPC corporations
     st = {(s["from_type"], s["from_id"]): s["standing"] for s in standings}
 
     return {
@@ -179,6 +210,7 @@ def load_character(client_id, station_id):
         "faction_standing": st.get(("faction", faction_id), 0.0),
         "blueprints": blueprints, "orders": orders, "transactions": transactions,
         "journal": journal, "balance": balance, "jobs": jobs, "assets": assets, "orders_history": orders_history,
+        "planets": planets, "asset_names": asset_names if assets else {},
         "can_read_structures": "esi-universe.read_structures.v1" in granted,
     }
 
