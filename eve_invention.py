@@ -143,7 +143,7 @@ def download_sde():
     r.raise_for_status()
     os.makedirs(SDE_DIR, exist_ok=True)
     wanted = {"types.jsonl", "groups.jsonl", "categories.jsonl", "planetSchematics.jsonl", "blueprints.jsonl", "typeDogma.jsonl",
-              "mapSolarSystems.jsonl", "_sde.jsonl", "npcCorporations.jsonl"}
+              "mapSolarSystems.jsonl", "_sde.jsonl", "npcCorporations.jsonl", "icons.jsonl"}
     with zipfile.ZipFile(io.BytesIO(r.content)) as z:
         for n in z.namelist():
             if os.path.basename(n) in wanted:
