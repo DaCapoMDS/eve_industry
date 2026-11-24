@@ -16,13 +16,16 @@
   "_bp_containers_comment": "Optional - Blueprints tab: your blueprint container names per role, e.g. \"bp_containers\": {\"build\": \"1 BUILD NOW\", \"invent\": \"2 INVENT\", \"bpc_missiles\": \"3 BPC MISSILES\", \"bpc_other\": \"4 BPC OTHER\", \"bpo_ammo\": \"5 BPO AMMO\", \"bpo_modules\": \"6 BPO GEAR\", \"bpo_misc\": \"7 BPO PARTS\", \"dead\": \"9 DEAD\"}. Without it, containers named starting with those numbers are used.",
   "reaction_system": "",
   "_reaction_system_comment": "Reactions tab: the low/null-sec system of the refinery you would react in (its cost index is used). Empty = a typical (median) reaction index.",
+  "reaction_me_bonus": 0.0,
+  "reaction_tax": 0.0025,
+  "_reaction_rig_comment": "Refinery in reaction_system: material bonus from its reactor rigs (0.02 = -2%, see the Industry window facility info) and its reaction tax (owner-set).",
   "use_buy_orders": false,
   "_use_buy_orders_comment": "Restock tab: true = also plan buy orders (price one step above the best bid, broker fee, fill time). false = everything you need is bought at sell orders.",
   "use_lp_stores": false,
   "_use_lp_stores_comment": "Faction tab: false = blueprint copies only from contracts (bought with ISK). true = also LP store offers, with LP valued at lp_isk_value - only useful if you collect LP.",
   "lp_isk_value": 700,
   "_lp_isk_value_comment": "What one LP is worth to you in ISK - used to cost blueprint copies from LP stores (Faction tab). The ISK/LP column shows what you actually get per LP.",
-  "categories": ["missiles", "laser_crystals", "mining_crystals", "other_ammo", "modules", "rigs", "components", "mining", "drones", "ships", "deployables", "structures", "structure_mods", "fuel", "faction", "boosters", "t3", "reactions", "mineral_builds"],
+  "categories": ["missiles", "laser_crystals", "mining_crystals", "other_ammo", "modules", "rigs", "components", "mining", "drones", "ships", "deployables", "structures", "structure_mods", "fuel", "faction", "boosters", "t3", "reactions", "glorified", "mineral_builds"],
   "_categories_comment": "Tabs in the report, each with T1 (built from NPC-sold BPOs) and T2 (invented) items: missiles, laser_crystals, mining_crystals, components (capital / advanced capital / T2 construction / T3 / structure components), mining (compressors, industrial cores, mining lasers, strip miners, harvesters, upgrades, survey gear), drones, ships, rigs (T1 rigs from salvage + invented T2 rigs), mineral_builds (other T1 items needing only minerals). modules (T1+T2 modules), other_ammo (hybrid/projectile ammo + other charges, T1+T2), deployables (mobile depots, tractor units, cyno beacons, warp disruptors ...), structures (Upwell structures, skyhooks, sov hub + upgrades). Also available: fuel (fuel blocks)",
 
   "skills": {
@@ -50,6 +53,8 @@
   "product_price_mode": "sell",
   "_product_price_comment": "'sell' = you list sell orders (pays broker fee), 'buy' = you dump into buy orders instantly",
 
+  "_hub_fee_discount_comment": "Temporary sales tax + broker fee discount at one station. Fractured Skies (2026-11-10): Amarr VIII EFA -50% for six months. Verify in-game; remove or change when it ends.",
+  "hub_fee_discount": {"station_id": 60008494, "rate": 0.5, "until": "2027-05-10"},
   "sales_tax": 0.045,
   "broker_fee": 0.015,
   "_fees_comment": "Sales tax: 7.5% base, -11% per Accounting level (IV=4.2%, V=3.375%). Broker fee in NPC station: 3% - 0.3%/Broker Relations level - standings bonus.",

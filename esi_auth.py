@@ -205,7 +205,8 @@ def load_character(client_id, station_id):
     return {
         "id": cid, "name": tok["character_name"],
         "skills": {s["skill_id"]: s["active_skill_level"] for s in skills.get("skills", [])},
-        "total_sp": skills.get("total_sp"),
+        "total_sp": skills.get("total_sp"), "unallocated_sp": skills.get("unallocated_sp") or 0,
+        "skill_sp": {s["skill_id"]: s.get("skillpoints_in_skill", 0) for s in skills.get("skills", [])},
         "corp_standing": st.get(("npc_corp", corp_id), 0.0),
         "faction_standing": st.get(("faction", faction_id), 0.0),
         "blueprints": blueprints, "orders": orders, "transactions": transactions,

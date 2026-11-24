@@ -9,6 +9,7 @@ journal.json
 jobs.json
 order_events.json
 sell_orders.json
+growth.json
 
 # --- caches / generated (rebuilt automatically) ---
 sde/
@@ -16,6 +17,8 @@ sde_cache.json
 history_cache.json
 contracts_cache.json
 lp_cache.json
+campaign_lp_cache.json
+campaign_history.json
 output/
 __pycache__/
 *.pyc

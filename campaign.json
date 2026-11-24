@@ -1,0 +1,106 @@
+{
+  "_help": "Campaign hand-ins (Item Trader + objective rewards). Numbers come from the objective window: ISK and LP 'per contribution' (1 contribution = 1 item delivered), and the trader's trade ratio (items per token). Leave per_token null while you don't know it. Type ids because the local SDE doesn't have the new campaign items yet.",
+  "campaign": "Into the Light (Amarr)",
+  "ends": "2027-01-09",
+  "trader": "Mehatoor III - Amarr Navy Anchorage",
+  "turnin_tax": 0.05,
+  "turnin_tax_lp": 0.01,
+  "lp_value": 1000,
+  "_help_tax": "turnin_tax: tax taken from the objective's ISK payout (5%). turnin_tax_lp: tax taken from its LP (1%). lp_value: ISK per LP used for hand-ins (the market's value is used when it's lower).",
+  "token": {
+    "type_id": 96515,
+    "name": "Imperial Light Token"
+  },
+  "lp_stores": [
+    1000084,
+    1000179
+  ],
+  "objectives": [
+    {
+      "type_id": 97544,
+      "name": "Thermoelectric Flux Log",
+      "isk": 28000,
+      "lp": 40,
+      "lp_corp": 1000084,
+      "per_token": 450,
+      "how": "Hacking: Collapsed Drifter Cache sites (relic analyzer), SARO Surveillance Outposts"
+    },
+    {
+      "type_id": 97548,
+      "name": "Republic Strategic Intel",
+      "isk": 32000,
+      "lp": 20,
+      "lp_corp": 1000179,
+      "per_token": 450,
+      "how": "Factional Warfare: NPCs defending Republic complexes (enlist with Amarr or get a suspect timer)"
+    },
+    {
+      "type_id": 97552,
+      "name": "Hyperspherical Housing",
+      "isk": 15000,
+      "lp": 25,
+      "lp_corp": 1000084,
+      "per_token": 450,
+      "how": "Combat sites, SARO Lockups"
+    },
+    {
+      "type_id": 97512,
+      "name": "Aberrant Raspite",
+      "isk": null,
+      "lp": null,
+      "lp_corp": 1000084,
+      "per_token": 45000,
+      "how": "Mineral, 0.001 m³ per unit (ISK/LP per contribution not known yet: fill isk/lp when you see the objective)"
+    }
+  ],
+  "rewards": [
+    {
+      "type_id": 94058,
+      "name": "Imperial Navy 'Neophyte' Heat Sink",
+      "tokens": 2
+    },
+    {
+      "type_id": 97880,
+      "name": "Navy Salvager",
+      "tokens": 3
+    },
+    {
+      "type_id": 93913,
+      "name": "Imperial Navy 'Atonement' Tracking Enhancer",
+      "tokens": 4
+    },
+    {
+      "type_id": 93840,
+      "name": "Imperial Navy Large Remote Armor Repairer",
+      "tokens": 6
+    },
+    {
+      "type_id": 94060,
+      "name": "Imperial Navy 'Disciple' Heat Sink",
+      "tokens": 20
+    },
+    {
+      "type_id": 98168,
+      "name": "Conquest Salvager",
+      "tokens": 60
+    }
+  ],
+  "also_watch": [
+    {
+      "type_id": 97545,
+      "name": "Shield Failover Report",
+      "note": "Caldari item, hand in at Onnamon"
+    },
+    {
+      "type_id": 97546,
+      "name": "Rogue Anoikis Telemetry",
+      "note": "Gallente item, hand in at Intaki"
+    },
+    {
+      "type_id": 97547,
+      "name": "Stereo-Collapse Signal",
+      "note": "Minmatar item, hand in at Amo (low-sec)"
+    }
+  ],
+  "_help_lp_stores": "Corporation ids of the LP stores shown in the LP Store tab (1000084 Amarr Navy, 1000179 24th Imperial Crusade)."
+}

@@ -27,13 +27,14 @@ import requests
 
 import esi_auth
 import tracking
+import campaign
 from chains import Chains
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SDE_DIR = os.path.join(HERE, "sde")
 SDE_URL = "https://developers.eveonline.com/static-data/eve-online-static-data-latest-jsonl.zip"
 SDE_CACHE = os.path.join(HERE, "sde_cache.json")
-SDE_CACHE_VERSION = 25  # bump when build_sde_cache() extracts new things
+SDE_CACHE_VERSION = 27  # bump when build_sde_cache() extracts new things
 OUT_DIR = os.path.join(HERE, "output")
 ESI = "https://esi.evetech.net/latest"
 HEADERS = {"User-Agent": "eve-invention-roi/1.0 (personal industry tool)"}
@@ -76,6 +77,7 @@ CATEGORIES = {
     "t3": "T3 (Reverse Engineering)",
     "structure_mods": "Structure Modules & Rigs",
     "reactions": "Reactions (low/null-sec)",
+    "glorified": "Glorified Mutaplasmids",
 }
 STRUCTURE_T1_META, STRUCTURE_T2_META = 54, 53  # CCP's own "Structure Tech I / II" meta levels
 # items only built from blueprint copies (LP stores, drops): which kinds of things we list
@@ -232,6 +234,14 @@ def build_sde_cache():
                 "inv_skills": [{"name": types[s["typeID"]]["name"], "level": s["level"]} for s in inv["skills"]]})
             continue
 
+        # Glorified mutaplasmids: built from a normal mutaplasmid + residues, blueprint copies only (loot / contracts)
+        if gname == "Mutaplasmids" and not bt["market"]:
+            items.append({**base, "cat_hint": "glorified", "bpo": True, "bpc_only": True, "bpo_price": 0,
+                "t1_bp_id": bp_id, "t1_bp_name": bt["name"], "t1_product_id": prod["typeID"],
+                "t1_mfg_materials": m["materials"], "inv_prob": 1.0, "inv_runs": 1, "inv_time": 0,
+                "inv_materials": [], "inv_skills": []})
+            continue
+
         # faction / BPC-only: the blueprint is never sold by NPCs, copies come from LP stores or drops
         if not bt["market"] and bp_id not in invented_from and pt["meta"] not in FACTION_SKIP_META \
                 and cat_names.get(g["categoryID"]) in FACTION_CATEGORIES:
@@ -320,7 +330,8 @@ def build_sde_cache():
                    "in": [[t["_key"], t["quantity"], pi_tier(t["_key"])] for t in ins]})
     skill_names = {k: t["name"] for k, t in types.items()
                    if t["published"] and groups.get(t["group"], {}).get("categoryID") == SKILL_CATEGORY}
-    cache = {"version": SDE_CACHE_VERSION, "skill_names": skill_names, "pi": pi, "bp_mfg": bp_mfg, "bp_inv": bp_inv,
+    skill_groups = {k: en(groups.get(types[k]["group"], {}).get("name", "")) or "Other" for k in skill_names}
+    cache = {"version": SDE_CACHE_VERSION, "skill_names": skill_names, "skill_groups": skill_groups, "pi": pi, "bp_mfg": bp_mfg, "bp_inv": bp_inv,
              "all_names": all_names, "sde": sde_ver, "items": items, "decryptors": decryptors, "names": names, "systems": systems, "corps": corps}
     with open(SDE_CACHE, "w", encoding="utf8") as f:
         json.dump(cache, f)
@@ -340,6 +351,7 @@ def load_sde(update=False):
     c["decryptors"] = {int(k): v for k, v in c["decryptors"].items()}
     c["names"] = {int(k): v for k, v in c["names"].items()}
     c["skill_names"] = {int(k): v for k, v in c["skill_names"].items()}
+    c["skill_groups"] = {int(k): v for k, v in c.get("skill_groups", {}).items()}
     c["all_names"] = {int(k): v for k, v in c["all_names"].items()}
     c["corps"] = {int(k): v for k, v in c.get("corps", {}).items()}
     c["bp_mfg"] = {int(k): v for k, v in c["bp_mfg"].items()}
@@ -682,7 +694,15 @@ def evaluate(item, dec, cfg, px, adj, idx):
     missing = []
     bpo = item.get("bpo", False)
     fbpc = cfg.get("_fbpc", {}).get(item["bp_id"]) if item.get("bpc_only") else None
-    if fbpc:  # faction / BPC-only: one bought copy, unresearched
+    held = cfg.get("_held_bpc", {}).get(item["bp_id"])
+    if held and (item.get("bpc_only") or (bpo and item["bp_id"] not in cfg.get("_owned_bpo", {}))) and not item.get("reaction"):
+        held = dict(held)  # build from the copy you hold: its runs and ME, no copy price
+    else:
+        held = None
+    if held:
+        dec = None
+        chance, runs, me = 1.0, held["runs"], held["me"]
+    elif fbpc:  # faction / BPC-only: one bought copy, unresearched
         dec = None
         chance, runs = 1.0, fbpc["runs"]
         me = cfg.get("faction_bpc_me", 0)
@@ -732,15 +752,17 @@ def evaluate(item, dec, cfg, px, adj, idx):
                 rp = 0
             attempt += rp  # the relic is consumed by each reverse-engineering attempt
         elif item.get("t1_bp_seeded", True):
-            attempt += t1_eiv * 0.02 * (idx["copying"] + job_rate)  # copy your own T1 BPO
+            attempt += t1_eiv * 0.02 * (idx["copying"] * (1 - cfg["structure_job_cost_bonus"]) + job_rate)  # copy your own T1 BPO
         else:
             offer = cfg.get("_bpc_prices", {}).get(item["t1_bp_id"])
             bpc_run = offer["per_run"] if offer else None
-            attempt += bpc_run or 0.0  # one bought T1 BPC run per attempt
-        attempt += t2_eiv * 0.02 * (idx["invention"] + job_rate)
+            if item["t1_bp_id"] not in cfg.get("_held_bpc", {}):  # T1 copies you hold are paid already
+                attempt += bpc_run or 0.0  # one bought T1 BPC run per attempt
+        attempt += t2_eiv * 0.02 * (idx["invention"] * (1 - cfg["structure_job_cost_bonus"]) + job_rate)
     if fbpc:
         bpc_run = fbpc["per_run"]
-        attempt += bpc_run * runs  # the copy itself
+        if not held:
+            attempt += bpc_run * runs  # the copy itself
     invention_per_bpc = attempt / chance if chance else float("inf")
 
     # manufacturing the whole BPC
@@ -755,7 +777,7 @@ def evaluate(item, dec, cfg, px, adj, idx):
         materials.append({"tid": m["typeID"], "name": names.get(m["typeID"], str(m["typeID"])), "qty": q, "unit": p, "total": q * p,
                           "avail": px.get(m["typeID"], {}).get("sell_units", 0)})  # units for sale at the hub right now
     if item.get("reaction"):
-        mfg_job = t2_eiv * runs * (idx.get("reaction", 0.0) + job_rate)
+        mfg_job = t2_eiv * runs * (idx.get("reaction", 0.0) + cfg.get("reaction_tax", cfg["facility_tax"]) + cfg["scc_surcharge"])
     else:
         mfg_job = t2_eiv * runs * (idx["manufacturing"] * (1 - cfg["structure_job_cost_bonus"]) + job_rate)
 
@@ -765,7 +787,9 @@ def evaluate(item, dec, cfg, px, adj, idx):
         v = cfg["skills"].get("overrides", {}).get(name)
         return v if v is not None else (0 if cfg.get("_character") else default)
     ind, adv, sci = lvl("Industry", 5), lvl("Advanced Industry"), lvl("Science", 5)
-    if item.get("reaction") or (item.get("bpc_only") and not fbpc):
+    if held:
+        te = held["te"]
+    elif item.get("reaction") or (item.get("bpc_only") and not fbpc):
         te = 0
     elif fbpc:
         te = cfg.get("faction_bpc_te", 0)
@@ -778,11 +802,15 @@ def evaluate(item, dec, cfg, px, adj, idx):
     else:
         mfg_hours = (item["mfg_time"] * runs * (1 - te / 100) * (1 - 0.04 * ind) * (1 - 0.03 * adv)
                      * (1 - cfg.get("structure_te_bonus", 0.0)) / 3600)
+        if not bpo:  # T2: each science skill the blueprint needs cuts build time 1% per level
+            for sk in item.get("mfg_skills", []):
+                if sk["name"] not in ("Industry", "Advanced Industry"):
+                    mfg_hours *= 1 - 0.01 * lvl(sk["name"], 0)
     lab_hours = 0.0
     if not bpo and chance:
         per_attempt = (item["inv_time"] * (1 - 0.03 * adv)
                        + item.get("copy_time", 0) * (1 - 0.05 * sci) * (1 - 0.03 * adv))
-        lab_hours = per_attempt / chance / 3600
+        lab_hours = per_attempt * (1 - cfg.get("structure_te_bonus", 0.0)) / chance / 3600  # structure role bonus covers science jobs too
 
     units = runs * item["units_per_run"]
     cost = invention_per_bpc + mat_cost + mfg_job
@@ -812,7 +840,7 @@ def evaluate(item, dec, cfg, px, adj, idx):
         "profit_per_attempt": chance * revenue - chance * (mat_cost + mfg_job) - attempt,
         "mfg_hours": mfg_hours, "lab_hours": lab_hours, "te": te, "dec_price": dec_price,
         "bpc_run": bpc_run, "bpc_needed": not bpo and not item.get("t1_bp_seeded", True), "fbpc": fbpc,
-        "nocopy": bool(item.get("bpc_only") and not fbpc),
+        "nocopy": bool(item.get("bpc_only") and not fbpc and not held), "held": held,
         "relic": item["t1_bp_name"] if item.get("relic") else None, "relic_id": item["t1_bp_id"] if item.get("relic") else None,
         "materials": materials, "missing": sorted(set(map(str, missing))),
     }
@@ -848,6 +876,16 @@ def apply_character(cfg, sde, do_login):
             owned_te[b["type_id"]] = max(owned_te.get(b["type_id"], 0), b["time_efficiency"])
     cfg["_owned_bpo"] = owned
     cfg["_owned_bpo_te"] = owned_te
+    # copies you hold (loot, bought lots): the copy is paid already - cost items from them without a copy price
+    held = {}
+    for b in char["blueprints"]:
+        if b["quantity"] == -2:
+            h = held.setdefault(b["type_id"], {"n": 0, "runs": 0, "me": 0, "te": 0})
+            h["n"] += 1
+            h["runs"] = max(h["runs"], b.get("runs", 1))
+            h["me"] = max(h["me"], b["material_efficiency"])
+            h["te"] = max(h["te"], b["time_efficiency"])
+    cfg["_held_bpc"] = held
     cfg["_char_raw"] = char
     print(f"Character: {char['name']} - Accounting {acc}, Broker Relations {br} -> sales tax {cfg['sales_tax']:.2%}, "
           f"broker fee {cfg['broker_fee']:.2%}; {len(owned)} BPOs owned")
@@ -875,6 +913,13 @@ def main():
     sde = load_sde(args.update_sde)
     cfg["_names"] = sde["names"]
     cfg["_character"] = apply_character(cfg, sde, args.login)
+    # temporary station discount on sales tax + broker fee (e.g. Fractured Skies: Amarr EFA -50% for six months)
+    disc = cfg.get("hub_fee_discount") or {}
+    if disc.get("station_id") == cfg["market_station_id"] and str(dt.date.today()) <= disc.get("until", "9999"):
+        f = 1 - disc.get("rate", 0.0)
+        cfg["sales_tax"] *= f
+        cfg["broker_fee"] *= f
+        print(f"Station discount -{disc.get('rate', 0):.0%} until {disc.get('until')}: sales tax {cfg['sales_tax']:.2%}, broker fee {cfg['broker_fee']:.2%}")
 
     cats = cfg.get("categories") or list(CATEGORIES)
     bad = [c for c in cats if c not in CATEGORIES]
@@ -972,7 +1017,8 @@ def main():
     base = next((d for d in decs if d["name"].lower() == dec_mode.lower()), None)
     rows = []
     for it in items:
-        if it.get("bpc_only") and it["bp_id"] not in cfg["_fbpc"] and it["cat_hint"] != "boosters":
+        if (it.get("bpc_only") and it["bp_id"] not in cfg["_fbpc"] and it["cat_hint"] != "boosters"
+                and it["bp_id"] not in cfg.get("_held_bpc", {})):
             continue  # no copy for sale anywhere we look: can't build it
         if it.get("relics"):
             def relic_opts(v):
@@ -1031,12 +1077,20 @@ def main():
         "est_cpu": {r["item"]["type_id"]: r["res"]["cost_per_unit"] for r in rows},
         "est_inv": {r["item"]["bp_id"]: r["res"]["invention_per_bpc"] for r in rows if not r["res"]["bpo"]},
         "bpc_runs": {bp: runs for inv in sde["bp_inv"].values() for bp, runs in inv["p"].items()},
-        "pi": sde["pi"],
+        "pi": sde["pi"], "skill_groups": sde.get("skill_groups", {}),
         "mat_ids": {m["typeID"] for it in items for m in it["mfg_materials"] + it["inv_materials"]} | {d["type_id"] for d in decs},
     })
     if track:
         bad = sum(o["status"] in ("undercut", "outbid") for o in track["orders"])
         print(f"Tracking: {len(track['orders'])} active orders ({bad} undercut/outbid), {track['tx_count']} transactions stored")
+    try:
+        cfg["_camp"] = campaign.build(station_orders, fetch_histories, region, esi_get, sde["all_names"], sde["corps"], cfg,
+                                     bp_mfg=sde["bp_mfg"], adj=adj, idx=idx)
+        if cfg["_camp"]:
+            print("Campaign: " + ", ".join(f"{o['name']} hand-in ~{isk(o['value_inst'])} vs sell {isk(o['buy'])}" for o in cfg["_camp"]["objectives"]))
+    except Exception as e:  # never break the update for the campaign tab
+        print(f"  campaign not available ({e})")
+        cfg["_camp"] = None
     path = write_html(rows, cfg, idx, sde, cats, mats, track)
     for c in cats:
         print(f"\n=== {CATEGORIES[c]}")
@@ -1248,7 +1302,7 @@ def write_html(rows, cfg, idx, sde, cats, mats, track=None):
                       None if o["roi_hist"] is None else round(o["roi_hist"], 4)] for o in r["options"]],
             "ppa": res["profit_per_attempt"], "attempt": res["attempt_cost"],
             "materials": res["materials"], "missing": res["missing"], "nomarket": res["no_market"],
-            "incomplete": bool(res["missing"]), "nocopy": res["nocopy"],  # a material has no price anywhere: cost (and ROI) can't be trusted
+            "incomplete": bool(res["missing"]), "nocopy": res["nocopy"], "held": res["held"],  # a material has no price anywhere: cost (and ROI) can't be trusted
             "mskills": [{"name": sk["name"], "level": sk["level"], "have": cfg["skills"].get("overrides", {}).get(sk["name"])} for sk in it.get("mfg_skills", [])],
             "invmats": [f"{m['quantity']}x {sde['names'].get(m['typeID'])}" for m in it["inv_materials"]],
             "invlist": [{"tid": m["typeID"], "name": sde["names"].get(m["typeID"]), "qty": m["quantity"]} for m in it["inv_materials"]],
@@ -1257,7 +1311,7 @@ def write_html(rows, cfg, idx, sde, cats, mats, track=None):
         "generated": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
         "sde": sde["sde"].get("buildNumber"), "system": cfg["industry_system"], "idx": idx,
         "matmode": cfg["material_price_mode"], "prodmode": cfg["product_price_mode"],
-        "tax": cfg["sales_tax"], "broker": cfg["broker_fee"], "days": cfg["history_days"],
+        "tax": cfg["sales_tax"], "broker": cfg["broker_fee"], "react_me": cfg.get("reaction_me_bonus", 0.0), "days": cfg["history_days"],
         "maxst": cfg["max_sell_through_days"], "local_icons": local_icons, "vol": {str(k): v for k, v in vol.items() if v}, "lp_value": cfg.get("lp_isk_value", 700), "bp_containers": cfg.get("bp_containers"), "use_buy_orders": cfg.get("use_buy_orders", False), "dec": cfg.get("decryptor", "none"),
         "skills": cfg["skills"], "cats": [{"key": c, "title": CATEGORIES[c]} for c in cats],
     }
@@ -1268,7 +1322,7 @@ def write_html(rows, cfg, idx, sde, cats, mats, track=None):
     ch = cfg.get("_character")
     meta["character"] = {k: v for k, v in ch.items() if k != "skills"} if ch else None
     meta["bpo_me"], meta["bpo_runs"] = cfg.get("bpo_me", 10), cfg.get("bpo_runs", 10)
-    out = tpl.replace("/*MUTA*/null", json.dumps(cfg.get("_muta"))).replace("/*PI*/null", json.dumps(cfg.get("_pi"))).replace("/*TRACK*/null", json.dumps(track)).replace("/*MATS*/null", json.dumps(mats)).replace("/*DATA*/null", json.dumps(data)).replace("/*META*/null", json.dumps(meta))
+    out = tpl.replace("/*CAMP*/null", json.dumps(cfg.get("_camp"))).replace("/*MUTA*/null", json.dumps(cfg.get("_muta"))).replace("/*PI*/null", json.dumps(cfg.get("_pi"))).replace("/*TRACK*/null", json.dumps(track)).replace("/*MATS*/null", json.dumps(mats)).replace("/*DATA*/null", json.dumps(data)).replace("/*META*/null", json.dumps(meta))
     path = os.path.join(OUT_DIR, "report.html")
     with open(path, "w", encoding="utf8") as f:
         f.write(out)

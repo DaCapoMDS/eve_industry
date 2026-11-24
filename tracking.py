@@ -278,6 +278,45 @@ def _planets(char, journal, ctx, nm):
     return out
 
 
+def _growth(char, journal, ctx):
+    """Personal growth: wallet balance per day (from the journal, which carries the balance after
+    every entry) and one snapshot per day of what the character is worth and knows (growth.json)."""
+    daily = {}
+    for e in sorted(journal, key=lambda e: (e["date"], e.get("id", 0))):
+        if e.get("balance") is not None:
+            daily[e["date"][:10]] = e["balance"]
+    market = ctx.get("market", {})
+    bp_items = {b["item_id"] for b in char.get("blueprints") or []}  # blueprints have no fair market value
+    assets, unpriced = 0.0, 0
+    for a in char.get("assets") or []:
+        if a["item_id"] in bp_items:
+            continue
+        p = market.get(a["type_id"])
+        if p:
+            assets += p * a["quantity"]
+        else:
+            unpriced += 1
+    orders = char.get("orders") or []
+    sp_of = char.get("skill_sp") or {}
+    lv = char.get("skills") or {}
+    groups = {}
+    for sid, sp in sp_of.items():
+        g = ctx.get("skill_groups", {}).get(sid, "Other")
+        x = groups.setdefault(g, {"group": g, "sp": 0, "skills": 0, "at5": 0})
+        x["sp"] += sp
+        x["skills"] += 1
+        x["at5"] += lv.get(sid, 0) >= 5
+    snap = {"date": NOW.date().isoformat(), "wallet": char.get("balance"),
+            "sell_orders": sum(o["price"] * o["volume_remain"] for o in orders if not o.get("is_buy_order")),
+            "escrow": sum(o.get("escrow") or 0 for o in orders if o.get("is_buy_order")),
+            "assets": assets if char.get("assets") is not None else None, "unpriced": unpriced,
+            "sp": char.get("total_sp"), "unalloc": char.get("unallocated_sp", 0), "skills": len(sp_of),
+            "at5": sum(1 for v in lv.values() if v >= 5), "groups": {g: x["sp"] for g, x in groups.items()}}
+    snaps = sorted(_store("growth.json", [snap], "date"), key=lambda s: s["date"])
+    return {"wallet_daily": sorted(daily.items()), "snaps": snaps,
+            "groups": sorted(groups.values(), key=lambda x: -x["sp"])}
+
+
 def _build_locations(jobs, nm):
     """Where you run your jobs, most used first (to preselect 'Stock at')."""
     count = {}
@@ -731,7 +770,9 @@ def build(char, cfg, ctx):
         "pnl": {"fees": pnl["fees"], "cost": pnl["cost"], "listed": pnl["listed"]},
         "orders": _orders(char["orders"], names, fee, cost_for, cfg),
         "relist_patience": cfg.get("relist_patience_days", 2),
-        "tx": out_tx[:3000], "tx_count": len(txs), "tx_since": txs[-1]["date"][:10] if txs else None,
+        "tx": out_tx, "tx_count": len(txs),  # all stored: a cap would cut sales but keep their fees
+        "tx_since": txs[-1]["date"][:10] if txs else None,
+        "growth": _growth(char, journal, ctx),
         "journal": out_journal[:20000], "journal_since": journal[-1]["date"][:10] if journal else None,
         "balance": char.get("balance"), "jobs": out_jobs[:1500], "have_industry": have_industry,
         "production": production, "ledger": ledger, "cost_for": {str(k): v for k, v in cost_for.items()},
