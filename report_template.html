@@ -175,6 +175,14 @@ td.name .tag{white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:el
 .seg .chip:first-child span{border-radius:999px 0 0 999px;margin-left:0}
 .seg .chip:last-child span{border-radius:0 999px 999px 0}
 .flabel{color:var(--muted);font-size:12px;margin-left:6px}
+.setgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(460px,100%),1fr));gap:14px;margin-top:10px}
+.setbox{border:1px solid var(--line, #333);border-radius:6px;padding:8px 12px;min-width:0;overflow:hidden}
+.settable{width:100%}
+.settable td{padding:3px 6px;vertical-align:middle;white-space:normal}
+.settable td:first-child{white-space:nowrap}
+.setcats{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:2px 10px;font-size:13px}
+.setjson{font-size:11px;max-height:200px;overflow:auto;background:var(--panel, #111);padding:6px}
+@media (max-width:600px){.setgrid{grid-template-columns:1fr}}
 details.help summary{cursor:pointer;color:var(--muted);padding:2px 0 8px}
 details.help summary:hover{color:var(--text)}
 details.help div{padding-bottom:6px}
@@ -281,6 +289,7 @@ th[title]{text-decoration:underline dotted var(--line);text-underline-offset:3px
 <div id="walletView" hidden></div>
 <div id="growthView" hidden></div>
 <div id="campaignView" hidden></div>
+<div id="settingsView" hidden></div>
 <div id="lpView" hidden>
 <div class="help">
   Every offer of the chosen LP store, priced at the Amarr hub. <b>ISK/LP</b> = what one LP turns into when you sell the item on your own sell order
@@ -339,6 +348,7 @@ const TRACK = /*TRACK*/null;
 const PI = /*PI*/null;
 const MUTA = /*MUTA*/null;
 const CAMP = /*CAMP*/null;
+const SETTINGS = /*SETTINGS*/null;
 
 const fmt = (v, d = 0) => {
   if (v === null || v === undefined || !isFinite(v)) return '<span class="dim">–</span>';
@@ -458,9 +468,9 @@ function limitsOk(r) {
 }
 try { cat = localStorage.getItem('eve-roi-cat') || ''; } catch (e) {}
 const VIEWS = {__muta: 'mutaView', __bps: 'bpView', __plan: 'planView', __restock: 'restockView', __prep: 'prepView', __planets: 'planetsView', __pi: 'piView', __decs: 'decView', __shop: 'shopView', __orders: 'ordersView', __trades: 'tradesView', __production: 'productionView', __ledger: 'ledgerView',
-  __jobs: 'jobsView', __wallet: 'walletView', __growth: 'growthView', __campaign: 'campaignView', __lpstore: 'lpView', __mats: 'matsView'};
+  __jobs: 'jobsView', __wallet: 'walletView', __growth: 'growthView', __campaign: 'campaignView', __lpstore: 'lpView', __settings: 'settingsView', __mats: 'matsView'};
 const HASHES = {'#mutaplasmids': '__muta', '#blueprints': '__bps', '#planner': '__plan', '#restock': '__restock', '#prep': '__prep', '#planets': '__planets', '#pi': '__pi', '#decryptors': '__decs', '#pnl': '__trades', '#shopping': '__shop', '#materials': '__mats', '#orders': '__orders', '#trades': '__trades', '#production': '__production',
-  '#ledger': '__ledger', '#jobs': '__jobs', '#wallet': '__wallet', '#growth': '__growth', '#campaign': '__campaign', '#lpstore': '__lpstore'};
+  '#ledger': '__ledger', '#jobs': '__jobs', '#wallet': '__wallet', '#growth': '__growth', '#campaign': '__campaign', '#lpstore': '__lpstore', '#settings': '__settings'};
 if (HASHES[location.hash]) cat = HASHES[location.hash];
 if (cat && !VIEWS[cat] && !META.cats.some(c => c.key === cat)) cat = '';
 const inCat = r => !cat || r.cat === cat;
@@ -533,6 +543,7 @@ function renderView() {
   else if (cat === '__growth') renderGrowth();
   else if (cat === '__campaign') renderCampaign();
   else if (cat === '__lpstore') renderLP();
+  else if (cat === '__settings') renderSettings();
   else { renderGroups(); renderCards(); render(); }
 }
 
@@ -542,6 +553,7 @@ const SECTIONS = [
   {key: 'industry', title: 'Industry', tabs: () => [{key: '__plan', title: '📅 Planner'}, {key: '__bps', title: '📘 Blueprints'}, {key: '__jobs', title: 'Jobs'}, {key: '__production', title: 'Production'}, {key: '__ledger', title: 'Material Ledger'}, {key: '__planets', title: '🪐 My Planets'}]},
   {key: 'economy', title: 'Economy', tabs: () => [{key: '__orders', title: 'My Orders'}, {key: '__trades', title: 'Trades'}, {key: '__restock', title: '🔄 Restock'}, {key: '__prep', title: '🧪 Craft Prep'}, {key: '__shop', title: '🛒 Shopping List'}, {key: '__wallet', title: 'Wallet'}, {key: '__growth', title: '📈 Growth'}, {key: '__campaign', title: '🎯 Campaign'}, {key: '__lpstore', title: '🏛 LP Store'}]},
   {key: 'fun', title: '🧪 Fun', tabs: () => [{key: '__muta', title: '🧬 Mutaplasmids'}]},
+  {key: 'settings', title: '⚙ Settings', tabs: () => [{key: '__settings', title: '⚙ Settings'}]},
 ];
 const sectionOf = key => SECTIONS.find(s => s.tabs().some(t => t.key === key)) || SECTIONS[0];
 let lastTab = {};
@@ -551,7 +563,7 @@ const readyJobs = () => TRACK && TRACK.jobs.some(j => j.status === 'ready');
 const extractorsDue = () => TRACK && TRACK.planets && TRACK.planets.some(p => p.extractors.some(e => e.hours_left !== null && e.hours_left < 24));
 function tabCount(key) {
   if (key === '__mats') return MATS.length;
-  if (key === '__growth' || key === '__campaign' || key === '__lpstore') return '';
+  if (key === '__growth' || key === '__campaign' || key === '__lpstore' || key === '__settings') return '';
   if (key === '__pi') return PI ? Object.keys(PI.schematics).length : '';
   if (key === '__decs') return DATA.filter(r => !r.bpo && r.decs && r.decs.length > 1 && !r.noskill && r.liquid && (r.roih ?? r.roi) > 0 && !bestDec(r).best.none).length || '';
   if (key === '__shop') return Object.values(CART).reduce((a, n) => a + n, 0) || '';
@@ -1161,7 +1173,7 @@ const locShort = n => n.split(' - ')[0];
 if (SHOP.loc === null || (SHOP.loc !== 'all' && !ALL_LOCS.includes(SHOP.loc))) SHOP.loc = BUILD_LOCS[0] || 'all';
 const stockTotal = tid => Object.values(STOCK_AT[tid] || {}).reduce((a, q) => a + q, 0);
 const stockHere = tid => SHOP.loc === 'all' ? stockTotal(tid) : ((STOCK_AT[tid] || {})[SHOP.loc] || 0);
-// "Amarr VIII: 11.4k · Yeder: 296" with the chosen location first
+// "Amarr VIII: 11.4k · Jita: 296" with the chosen location first
 function stockSplit(tid) {
   const w = STOCK_AT[tid] || {};
   return Object.entries(w).sort((a, b) => (b[0] === SHOP.loc) - (a[0] === SHOP.loc) || b[1] - a[1])
@@ -3836,6 +3848,172 @@ function renderLP() {
   document.getElementById('lpcount').textContent = `${rows.length} of ${S.rows.length} offers · best ${fmt(S.list || 0)} ISK/LP via sell order (offers that sell ≥5/day)`;
 }
 ['lpstore', 'lpq', 'lpminvol', 'lpminisk', 'lpreq'].forEach(id => document.getElementById(id).addEventListener('input', renderLP));
+
+// ---------------------------------------------------------------- settings
+// edit config.json / campaign.json from the report (saved by server.py; start values = your current files)
+const HUBS = [
+  {n: 'Jita IV - Moon 4 - Caldari Navy Assembly Plant', st: 60003760, reg: 10000002, rn: 'The Forge'},
+  {n: 'Amarr VIII (Oris) - Emperor Family Academy', st: 60008494, reg: 10000043, rn: 'Domain'},
+  {n: 'Dodixie IX - Moon 20 - Federation Navy Assembly Plant', st: 60011866, reg: 10000032, rn: 'Sinq Laison'},
+  {n: 'Rens VI - Moon 8 - Brutor Tribe Treasury', st: 60004588, reg: 10000030, rn: 'Heimatar'},
+  {n: 'Hek VIII - Moon 12 - Boundless Creation Factory', st: 60005686, reg: 10000042, rn: 'Metropolis'},
+];
+// one field: k = key path in the file, t = label, ty = int | num | pct | str | bool | date | sel | list | ids | kv | cats | boxes | hub
+const SET_GROUPS = [
+  {t: '🏪 Market hub', c: '_market_comment', f: [
+    {k: '__hub', t: 'Trade hub', ty: 'hub', tip: 'where you buy materials and sell products (must be an NPC station)'},
+    {k: 'market_station_id', t: 'Station id', ty: 'int'}, {k: 'market_region_id', t: 'Region id', ty: 'int'}, {k: 'market_region_name', t: 'Region name', ty: 'str'}]},
+  {t: '💸 Fees', c: '_fees_comment', f: [
+    {k: 'sales_tax', t: 'Sales tax', ty: 'pct', tip: 'replaced by your Accounting skill when logged in'},
+    {k: 'broker_fee', t: 'Broker fee', ty: 'pct', tip: 'replaced by your skills + standings when logged in'},
+    {k: 'hub_fee_discount.station_id', t: 'Discount station id', ty: 'int'},
+    {k: 'hub_fee_discount.rate', t: 'Discount', ty: 'pct', tip: 'temporary discount on sales tax + broker fee at that station'},
+    {k: 'hub_fee_discount.until', t: 'Discount until', ty: 'date'}], c2: '_hub_fee_discount_comment'},
+  {t: '🏭 Industry structure', c: '_industry_comment', c2: '_structure_comment', f: [
+    {k: 'industry_system', t: 'Industry system', ty: 'str', tip: 'its cost index is used for job costs'},
+    {k: 'structure_me_bonus', t: 'Material bonus', ty: 'pct', tip: 'rigs + structure, e.g. 1% for a rigged Raitaru in high-sec'},
+    {k: 'structure_te_bonus', t: 'Time bonus', ty: 'pct'},
+    {k: 'structure_job_cost_bonus', t: 'Job cost bonus', ty: 'pct'},
+    {k: 'facility_tax', t: 'Facility tax', ty: 'pct', tip: 'set by the structure owner'},
+    {k: 'scc_surcharge', t: 'SCC surcharge', ty: 'pct'}]},
+  {t: '⚗ Reactions', c: '_reaction_system_comment', c2: '_reaction_rig_comment', f: [
+    {k: 'reaction_system', t: 'Reaction system', ty: 'str', tip: 'empty = a typical (median) index'},
+    {k: 'reaction_me_bonus', t: 'Material bonus', ty: 'pct'}, {k: 'reaction_tax', t: 'Reaction tax', ty: 'pct'}]},
+  {t: '📘 Blueprints & invention', c: '_bpo_comment', c2: '_decryptor_comment', f: [
+    {k: 'bpo_me', t: 'Your BPOs: ME', ty: 'int'}, {k: 'bpo_te', t: 'Your BPOs: TE', ty: 'int'}, {k: 'bpo_runs', t: 'Runs per job', ty: 'int'},
+    {k: 'decryptor', t: 'Decryptor', ty: 'sel', opts: ['none', 'best', 'Accelerant Decryptor', 'Attainment Decryptor', 'Augmentation Decryptor', 'Optimized Attainment Decryptor', 'Optimized Augmentation Decryptor', 'Parity Decryptor', 'Process Decryptor', 'Symmetry Decryptor']},
+    {k: 'faction_bpc_me', t: 'Faction BPC ME', ty: 'int'}, {k: 'faction_bpc_te', t: 'Faction BPC TE', ty: 'int'}]},
+  {t: '📦 Blueprint containers', c: '_bp_containers_comment', f: [{k: 'bp_containers', t: '', ty: 'boxes'}]},
+  {t: '💰 Buying & selling', c: '_material_price_comment', c2: '_product_price_comment', f: [
+    {k: 'material_price_mode', t: 'Buy materials from', ty: 'sel', opts: ['sell', 'buy'], lab: {sell: 'sell orders (instant)', buy: 'your buy orders'}},
+    {k: 'product_price_mode', t: 'Sell products to', ty: 'sel', opts: ['sell', 'buy'], lab: {sell: 'your sell orders', buy: 'buy orders (instant)'}},
+    {k: 'use_buy_orders', t: 'Restock: plan buy orders', ty: 'bool'},
+    {k: 'relist_patience_days', t: 'Relist after (days)', ty: 'num', tip: 'how long an order may sit before the tool says relist'},
+    {k: 'max_sell_through_days', t: 'Max days to sell', ty: 'num', tip: 'items that take longer to sell count as illiquid'},
+    {k: 'history_days', t: 'History days', ty: 'int', tip: 'days of market history for volumes'},
+    {k: 'pi_tax_rate', t: 'PI customs tax', ty: 'pct'}]},
+  {t: '🏛 LP', c: '_use_lp_stores_comment', c2: '_lp_isk_value_comment', f: [
+    {k: 'use_lp_stores', t: 'Faction tab: LP store BPCs', ty: 'bool'}, {k: 'lp_isk_value', t: 'ISK per LP', ty: 'int'}]},
+  {t: '🎓 Skills (used when not logged in)', c: null, f: [
+    {k: 'skills.science', t: 'Science skills', ty: 'int'}, {k: 'skills.encryption', t: 'Encryption', ty: 'int'},
+    {k: 'skills.overrides', t: 'Per skill', ty: 'kv', tip: 'one per line: Skill name = level'}]},
+  {t: '🗂 Report tabs', c: '_categories_comment', f: [{k: 'categories', t: '', ty: 'cats'}]},
+  {t: '🎯 Campaign', file: 'campaign', c: '_help_tax', f: [
+    {k: 'campaign', t: 'Campaign', ty: 'str'}, {k: 'ends', t: 'Ends', ty: 'date'}, {k: 'trader', t: 'Item trader', ty: 'str'},
+    {k: 'turnin_tax', t: 'Turn-in tax on ISK', ty: 'pct'}, {k: 'turnin_tax_lp', t: 'Turn-in tax on LP', ty: 'pct'},
+    {k: 'lp_value', t: 'LP worth (ISK)', ty: 'int', tip: 'hand-ins value LP at this or the market, whichever is lower'},
+    {k: 'lp_stores', t: 'LP stores (corp ids)', ty: 'ids', tip: 'shown in the LP Store tab, comma separated'}]},
+  {t: '🔧 Other', c: null, f: [{k: 'eve_client_dir', t: 'EVE client folder', ty: 'str', tip: 'for item icons; default C:\\CCP\\EVE'}]},
+];
+const SET_SRC = {config: SETTINGS ? SETTINGS.config : {}, campaign: SETTINGS ? SETTINGS.campaign || {} : {}};
+let setWork = null, setMsg = '', setFetched = false;
+const setClone = o => JSON.parse(JSON.stringify(o));
+const pget = (o, path) => path.split('.').reduce((a, k) => a == null ? undefined : a[k], o);
+function pset(o, path, v) {
+  const ks = path.split('.'); let a = o;
+  ks.slice(0, -1).forEach(k => { if (typeof a[k] !== 'object' || a[k] === null) a[k] = {}; a = a[k]; });
+  if (v === undefined) delete a[ks[ks.length - 1]]; else a[ks[ks.length - 1]] = v;
+}
+const fileOf = g => g.file || 'config';
+const exampleVal = (g, k) => fileOf(g) === 'config' && SETTINGS && SETTINGS.example ? pget(SETTINGS.example, k) : undefined;
+function setField(g, f) {
+  const file = fileOf(g), W = setWork[file], v = pget(W, f.k), ex = exampleVal(g, f.k);
+  const changed = JSON.stringify(v) !== JSON.stringify(pget(SET_SRC[file], f.k));
+  const id = `set-${file}-${f.k}`, data = `data-file="${file}" data-k="${f.k}" data-ty="${f.ty}"`;
+  const ph = ex !== undefined && v === undefined ? `placeholder="${esc(f.ty === 'pct' ? +(ex * 100).toFixed(4) : String(ex))}"` : '';
+  let inp;
+  if (f.ty === 'hub') {
+    const st = W.market_station_id, known = HUBS.find(h => h.st === st);
+    inp = `<select id="set-hub">${HUBS.map(h => `<option value="${h.st}" ${h.st === st ? 'selected' : ''}>${esc(h.n)}</option>`).join('')}${known ? '' : `<option selected value="">other (ids below)</option>`}</select>`;
+  } else if (f.ty === 'bool') inp = `<input type="checkbox" ${data} ${v ? 'checked' : ''}>`;
+  else if (f.ty === 'sel') inp = `<select ${data}>${(v !== undefined && !f.opts.includes(v) ? [v, ...f.opts] : f.opts).map(o => `<option value="${esc(o)}" ${o === v ? 'selected' : ''}>${esc((f.lab || {})[o] || o)}</option>`).join('')}</select>`;
+  else if (f.ty === 'pct') inp = `<input type="number" step="any" ${data} ${ph} value="${v === undefined || v === null ? '' : +(v * 100).toFixed(4)}" style="width:80px"> %`;
+  else if (f.ty === 'int' || f.ty === 'num') inp = `<input type="number" step="${f.ty === 'int' ? 1 : 'any'}" ${data} ${ph} value="${v ?? ''}" style="width:110px">`;
+  else if (f.ty === 'date') inp = `<input type="date" ${data} value="${esc(v || '')}">`;
+  else if (f.ty === 'ids') inp = `<input ${data} value="${esc((v || []).join(', '))}" size="30">`;
+  else if (f.ty === 'kv') inp = `<textarea ${data} rows="4" cols="34">${esc(Object.entries(v || {}).filter(([n]) => !n.startsWith('_')).map(([n, l]) => n + ' = ' + l).join('\n'))}</textarea>`;
+  else if (f.ty === 'cats') {
+    const on = new Set(v || []);
+    return `<div class="setcats">${Object.entries(SETTINGS.categories || {}).map(([c, title]) =>
+      `<label><input type="checkbox" data-cat="${c}" ${on.has(c) ? 'checked' : ''}> ${esc(title)}</label>`).join('')}</div>`;
+  } else if (f.ty === 'boxes') {
+    const labels = [...new Set(((TRACK && TRACK.blueprints) || []).map(b => b.cont_label).filter(Boolean))].sort();
+    return `<datalist id="set-boxlist">${labels.map(l => `<option value="${esc(l)}">`).join('')}</datalist><table class="plan settable">${BOX_ROLES.map(b =>
+      `<tr><td class="l">${b.n}</td><td class="l"><input list="set-boxlist" data-box="${b.role}" placeholder="${esc(b.name)}" value="${esc((v || {})[b.role] || '')}" size="26"></td><td class="l dim">${esc(b.what)}</td></tr>`).join('')}</table>
+      <div class="dim" style="font-size:11px">Suggestions are the container names your blueprints are in. Empty = matched by the number at the start of the name.</div>`;
+  } else inp = `<input ${data} ${ph} value="${esc(v ?? '')}" size="${f.k.includes('dir') || f.k === 'trader' ? 40 : 24}">`;
+  return `<tr><td class="l">${esc(f.t)}${changed ? ' <span class="tag warn">changed</span>' : ''}</td><td class="l">${inp}</td><td class="l dim" style="font-size:11px">${esc(f.tip || '')}</td></tr>`;
+}
+function setRead(el) {  // input element -> value in setWork
+  const file = el.dataset.file, k = el.dataset.k, ty = el.dataset.ty, raw = el.type === 'checkbox' ? el.checked : el.value.trim();
+  let v;
+  if (ty === 'bool') v = raw;
+  else if (ty === 'pct') v = raw === '' ? undefined : +(+raw / 100).toFixed(8);
+  else if (ty === 'int') v = raw === '' ? undefined : Math.round(+raw);
+  else if (ty === 'num') v = raw === '' ? undefined : +raw;
+  else if (ty === 'ids') v = raw.split(/[\s,;]+/).filter(Boolean).map(Number).filter(n => n > 0);
+  else if (ty === 'kv') { v = {}; raw.split('\n').forEach(l => { const m = l.match(/^\s*(.+?)\s*[=:]\s*(\d+)\s*$/); if (m) v[m[1]] = +m[2]; }); }
+  else v = raw;
+  if (v !== undefined && typeof v === 'number' && isNaN(v)) return;
+  pset(setWork[file], k, v);
+}
+function setChanges() {
+  const out = {};
+  for (const file of ['config', 'campaign']) {
+    const ch = {};
+    Object.keys(setWork[file]).forEach(k => { if (!k.startsWith('_') && JSON.stringify(setWork[file][k]) !== JSON.stringify(SET_SRC[file][k])) ch[k] = setWork[file][k]; });
+    if (Object.keys(ch).length) out[file] = ch;
+  }
+  return out;
+}
+async function setSave(andUpdate) {
+  const ch = setChanges();
+  if (!Object.keys(ch).length) { setMsg = 'Nothing changed.'; return renderSettings(); }
+  try {
+    const r = await fetch(API + '/settings', {method: 'POST', headers: {'X-Eve-Update': '1', 'Content-Type': 'application/json'}, body: JSON.stringify(ch)});
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.status);
+    SET_SRC.config = j.config; SET_SRC.campaign = j.campaign; setWork = setClone(SET_SRC);
+    setMsg = '✔ Saved (old version kept as .bak).' + (andUpdate ? ' Updating the report…' : ' Click ⟳ Update to see the effect.');
+    renderSettings();
+    if (andUpdate) startUpdate(false);
+  } catch (e) {
+    setMsg = e instanceof TypeError ? '✖ The local server isn\'t running: start run.bat, then save again (or copy the changes below into the files yourself).' : '✖ ' + e.message;
+    renderSettings();
+  }
+}
+async function renderSettings() {
+  const el = document.getElementById('settingsView');
+  if (!SETTINGS) { el.innerHTML = '<p class="dim">Run the update once to fill this page.</p>'; return; }
+  if (!setFetched) {  // the files may have changed since this report was built
+    setFetched = true;
+    try { const r = await fetch(API + '/settings', {cache: 'no-store'}); if (r.ok) { const j = await r.json(); SET_SRC.config = j.config; SET_SRC.campaign = j.campaign; } } catch (e) {}
+  }
+  if (!setWork) setWork = setClone(SET_SRC);
+  const com = (g, c) => c ? (fileOf(g) === 'campaign' ? SET_SRC.campaign[c] : SET_SRC.config[c] || (SETTINGS.example || {})[c]) : '';
+  const ch = setChanges(), n = Object.values(ch).reduce((a, o) => a + Object.keys(o).length, 0);
+  el.innerHTML = `<div class="help">Your settings from <code>config.json</code> and <code>campaign.json</code>. Change them here and save: the files are written by the local server (run.bat), the old version is kept as <code>.bak</code>. Your EVE login (Client ID) isn't shown or changed here. When you're logged in, your real skills, sales tax and broker fee replace the values below.</div>
+    <div class="controls"><button id="set-save" ${n ? '' : 'disabled'}>💾 Save</button><button id="set-saveup" ${n ? '' : 'disabled'}>💾 Save &amp; update</button><button class="sec" id="set-reset" ${n ? '' : 'disabled'}>Undo changes</button>
+      <span class="dim">${n ? n + ' setting' + (n > 1 ? 's' : '') + ' changed' : 'no changes'}</span> <span class="${setMsg.startsWith('✖') ? 'neg' : 'pos'}">${esc(setMsg)}</span></div>
+    ${setMsg.startsWith('✖') && n ? `<pre class="setjson">${esc(JSON.stringify(ch, null, 2))}</pre>` : ''}
+    <div class="setgrid">${SET_GROUPS.map(g => `<div class="setbox"><h3 class="sub">${g.t} <span class="dim" style="font-weight:400;font-size:11px">${fileOf(g)}.json</span></h3>
+      ${[com(g, g.c), com(g, g.c2)].filter(Boolean).map(t => `<div class="dim" style="font-size:11px;margin-bottom:6px">${esc(t)}</div>`).join('')}
+      ${g.f.some(f => f.ty === 'cats' || f.ty === 'boxes') ? g.f.map(f => setField(g, f)).join('') : `<table class="plan settable">${g.f.map(f => setField(g, f)).join('')}</table>`}</div>`).join('')}</div>`;
+  el.querySelectorAll('[data-k]').forEach(i => i.addEventListener('change', () => { setRead(i); setMsg = ''; renderSettings(); }));
+  el.querySelectorAll('[data-cat]').forEach(i => i.addEventListener('change', () => {
+    setWork.config.categories = [...el.querySelectorAll('[data-cat]')].filter(x => x.checked).map(x => x.dataset.cat); setMsg = ''; renderSettings();
+  }));
+  el.querySelectorAll('[data-box]').forEach(i => i.addEventListener('change', () => {
+    const bc = {...(setWork.config.bp_containers || {})}; const v = i.value.trim();
+    if (v) bc[i.dataset.box] = v; else delete bc[i.dataset.box];
+    setWork.config.bp_containers = bc; setMsg = ''; renderSettings();
+  }));
+  const hub = document.getElementById('set-hub');
+  if (hub) hub.onchange = () => { const h = HUBS.find(x => String(x.st) === hub.value); if (h) Object.assign(setWork.config, {market_station_id: h.st, market_region_id: h.reg, market_region_name: h.rn}); setMsg = ''; renderSettings(); };
+  document.getElementById('set-save').onclick = () => setSave(false);
+  document.getElementById('set-saveup').onclick = () => setSave(true);
+  document.getElementById('set-reset').onclick = () => { setWork = setClone(SET_SRC); setMsg = ''; renderSettings(); };
+}
 
 // ---------------------------------------------------------------- update button
 // Works both when served by server.py (http://localhost:8766) and when the file is

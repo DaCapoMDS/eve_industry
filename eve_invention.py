@@ -910,6 +910,16 @@ def main():
         print("Created config.json from config.example.json - edit it to match your character.")
     with open(args.config, encoding="utf8") as f:
         cfg = json.load(f)
+    hidden = {"esi_client_id", "esi_callback"}
+    cfg["_settings"] = {"config": {k: v for k, v in cfg.items() if k not in hidden}, "categories": CATEGORIES}
+    try:
+        with open(os.path.join(HERE, "config.example.json"), encoding="utf8") as f:
+            cfg["_settings"]["example"] = {k: v for k, v in json.load(f).items() if k not in hidden}
+        with open(os.path.join(HERE, "campaign.json"), encoding="utf8") as f:
+            cfg["_settings"]["campaign"] = json.load(f)
+    except (OSError, ValueError):
+        pass
+    cfg["_settings"] = json.loads(json.dumps(cfg["_settings"]))  # a copy: cfg gets changed below
     sde = load_sde(args.update_sde)
     cfg["_names"] = sde["names"]
     cfg["_character"] = apply_character(cfg, sde, args.login)
@@ -1322,7 +1332,7 @@ def write_html(rows, cfg, idx, sde, cats, mats, track=None):
     ch = cfg.get("_character")
     meta["character"] = {k: v for k, v in ch.items() if k != "skills"} if ch else None
     meta["bpo_me"], meta["bpo_runs"] = cfg.get("bpo_me", 10), cfg.get("bpo_runs", 10)
-    out = tpl.replace("/*CAMP*/null", json.dumps(cfg.get("_camp"))).replace("/*MUTA*/null", json.dumps(cfg.get("_muta"))).replace("/*PI*/null", json.dumps(cfg.get("_pi"))).replace("/*TRACK*/null", json.dumps(track)).replace("/*MATS*/null", json.dumps(mats)).replace("/*DATA*/null", json.dumps(data)).replace("/*META*/null", json.dumps(meta))
+    out = tpl.replace("/*SETTINGS*/null", json.dumps(cfg.get("_settings"))).replace("/*CAMP*/null", json.dumps(cfg.get("_camp"))).replace("/*MUTA*/null", json.dumps(cfg.get("_muta"))).replace("/*PI*/null", json.dumps(cfg.get("_pi"))).replace("/*TRACK*/null", json.dumps(track)).replace("/*MATS*/null", json.dumps(mats)).replace("/*DATA*/null", json.dumps(data)).replace("/*META*/null", json.dumps(meta))
     path = os.path.join(OUT_DIR, "report.html")
     with open(path, "w", encoding="utf8") as f:
         f.write(out)
